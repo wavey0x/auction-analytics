@@ -41,7 +41,7 @@ DECLARE
   r record;
   seq_name text;
   max_id bigint;
-  schema_name text := :SCHEMA;
+  schema_name text := :'SCHEMA';
 BEGIN
   -- 1) Primary-key integer columns missing identity/default
   FOR r IN
@@ -129,7 +129,7 @@ if [[ "$DROP_NN" == "yes" ]]; then
 DO $$
 DECLARE
   r record;
-  schema_name text := :SCHEMA;
+  schema_name text := :'SCHEMA';
 BEGIN
   FOR r IN
     WITH pk_cols AS (
