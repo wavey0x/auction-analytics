@@ -114,7 +114,7 @@ ETHEREUM_FACTORY_ADDRESS=0x_YOUR_DEPLOYED_FACTORY
 
 - **Production API**: `app.py` - Full database + blockchain integration
 - **Mock API**: `simple_server.py` - Hardcoded data for UI testing
-- **Database**: PostgreSQL with TimescaleDB for time-series optimization
+- **Database**: PostgreSQL for time-series optimization
 
 ### Frontend (`/ui/`)
 
@@ -172,6 +172,7 @@ In development mode, the indexer configuration is generated dynamically to match
 - Generous column sizing (VARCHAR(100) for addresses, VARCHAR(200) for IDs)
 - Optimized indexes for common queries (auctions by status, takes by taker)
 - **Database Setup**: Use `./setup_database.sh` for fresh installations
+- **Production Sync**: Use `./scripts/sync_prod_with_dev_schema.sh` to sync production with dev schema
 
 ## 📊 API Endpoints
 
@@ -439,7 +440,7 @@ Ctrl+C               # Automatically cleans up all processes
 - **API Health**: `/health` endpoint for service status
 - **Network Status**: `/networks` for blockchain connectivity
 - **Live Dashboard**: Real-time auction activity and charts
-- **Database Metrics**: Performance tracking via TimescaleDB
+- **Database Metrics**: Performance tracking via PostgreSQL
 
 ### Production Monitoring
 
@@ -471,13 +472,17 @@ cd auction-system
 # 1. Configure production in .env:
 APP_MODE=prod
 DATABASE_URL=postgresql://user:pass@prod-db:5432/auction
+DEV_DATABASE_URL=postgresql://postgres:password@localhost:5433/auction_dev
 ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR_KEY
 ETHEREUM_FACTORY_ADDRESS=0x_YOUR_DEPLOYED_FACTORY
 
-# 2. Deploy:
+# 2. Sync database schema from dev to production:
+./scripts/sync_prod_with_dev_schema.sh
+
+# 3. Deploy:
 ./run.sh prod
 
-# 3. Monitor:
+# 4. Monitor:
 curl http://localhost:8000/networks
 ```
 
@@ -559,9 +564,8 @@ curl http://localhost:8000/docs   # API documentation
 
 ### Project Documentation
 
-- **[RUN_GUIDE.md](RUN_GUIDE.md)**: Detailed setup and configuration guide
-- **[FREE_HOSTING.md](FREE_HOSTING.md)**: Zero-cost deployment guide for Vercel, Supabase, etc.
-- **[MODES.md](MODES.md)**: Complete mode documentation with examples
+- **[INSTALLATION.md](INSTALLATION.md)**: Complete fresh installation guide for production deployments
+- **[database.md](database.md)**: Database setup, schema sync, and troubleshooting guide
 - **[architecture.md](architecture.md)**: Full system architecture overview
 - **[CLAUDE.md](CLAUDE.md)**: LLM-optimized development guide
 

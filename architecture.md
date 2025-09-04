@@ -114,8 +114,8 @@ The Web3.py indexer populates business logic tables directly:
 #### Database Schema
 The database uses a clean structure optimized for multi-chain auction monitoring with proper foreign key relationships and time-series data handling.
 
-#### TimescaleDB Integration
-- **Hypertables**: `auction_rounds`, `auction_sales`, `price_history` optimized for time-series
+#### PostgreSQL Optimization
+- **Time-series handling**: Efficient timestamp indexing for blockchain data
 - **Automatic triggers**: Statistics updates on new sales
 - **Performance indexes**: Optimized for common query patterns
 
@@ -309,7 +309,7 @@ ARBITRUM_FACTORY_ADDRESS="0x..."
 
 ### Current Capabilities
 - ✅ **Multi-network ready**: Native support for multiple blockchains
-- ✅ **Scalable database**: TimescaleDB optimized for time-series data
+- ✅ **Scalable database**: PostgreSQL optimized for time-series data
 - ✅ **Event-driven**: Reliable blockchain event processing with custom Web3.py indexer
 - ✅ **Type-safe**: Full TypeScript implementation
 - ✅ **Mode flexibility**: Easy switching between dev/mock/prod

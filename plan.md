@@ -39,9 +39,8 @@ auction-house/
 
 ### Event Indexing & Data Pipeline
 - **Rindexer**: Real-time blockchain event indexing to PostgreSQL
-- **PostgreSQL**: Primary database for historical auction data
+- **PostgreSQL**: Primary database for historical auction data with time-series optimization
 - **Redis**: Real-time caching for active auction states and pricing
-- **TimescaleDB Extension**: Time-series data for analytics
 
 ### Backend Services
 - **FastAPI**: Python-based REST API server
@@ -117,10 +116,11 @@ auction_rounds (
     starting_price DECIMAL(30,0),
     auction_length INTEGER,
     block_number BIGINT,
-    tx_hash VARCHAR(66)
+    tx_hash VARCHAR(66),
+    INDEX (kicked_at)  -- Time-series optimization
 )
 
--- Take events (auction participation)
+-- Take events (auction participation) 
 auction_takes (
     id SERIAL PRIMARY KEY,
     auction_address VARCHAR(42),
@@ -132,7 +132,8 @@ auction_takes (
     price DECIMAL(30,0),
     timestamp TIMESTAMP,
     block_number BIGINT,
-    tx_hash VARCHAR(66)
+    tx_hash VARCHAR(66),
+    INDEX (timestamp)  -- Time-series optimization
 )
 
 -- Price history (calculated periodically)
@@ -141,7 +142,8 @@ price_history (
     round_id INTEGER,
     timestamp TIMESTAMP,
     price DECIMAL(30,0),
-    available_amount DECIMAL(30,0)
+    available_amount DECIMAL(30,0),
+    INDEX (timestamp)  -- Time-series optimization
 )
 ```
 

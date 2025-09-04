@@ -93,15 +93,16 @@ class DatabaseManager:
             logger.info(f"Connected to database: {db_name}")
             logger.info(f"PostgreSQL version: {version}")
             
-            # Check for TimescaleDB
+            # Check for PostgreSQL extensions
             try:
-                ts_version = await conn.fetchval("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'")
-                if ts_version:
-                    logger.info(f"TimescaleDB version: {ts_version}")
+                extensions = await conn.fetch("SELECT extname, extversion FROM pg_extension WHERE extname NOT LIKE 'plpgsql'")
+                if extensions:
+                    for ext in extensions:
+                        logger.info(f"Extension {ext['extname']}: {ext['extversion']}")
                 else:
-                    logger.warning("TimescaleDB extension not found")
+                    logger.info("No additional extensions installed")
             except:
-                logger.warning("TimescaleDB not available")
+                logger.info("Extension check not available")
             
             return True
         except Exception as e:

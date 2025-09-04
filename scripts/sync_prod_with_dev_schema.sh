@@ -1,6 +1,22 @@
 #!/bin/bash
 # Production Database Schema Sync Script
 # Syncs production database with development database schema
+#
+# CRITICAL: This script completely rebuilds production schema from dev database.
+# Use this for fresh production installations or when dev schema has major changes.
+# 
+# Prerequisites:
+# - Development database must be running (docker-compose up postgres)
+# - Production database user must have schema ownership privileges
+# - .env must contain valid DATABASE_URL and DEV_DATABASE_URL
+#
+# What this script does:
+# 1. Extracts dev database schema using Docker pg_dump (avoids version mismatch)
+# 2. Creates simplified migration script without complex verification blocks
+# 3. Preserves important production data if it exists (indexer_state, auctions)
+# 4. Applies exact dev schema structure to production
+# 5. Sets proper ownership to auction user
+# 6. Verifies critical columns exist (round_start, round_end, etc.)
 
 set -euo pipefail
 
@@ -64,16 +80,14 @@ log_info "📤 Exporting development database schema..."
 if command -v docker &> /dev/null && docker ps | grep -q auction_postgres; then
     # Use Docker if available
     docker exec auction_postgres pg_dump -U postgres -d auction_dev \
-        --schema-only --no-owner --no-privileges --no-tablespaces \
-        --exclude-table-data='_timescaledb_*' > "$SCHEMA_FILE" || {
+        --schema-only --no-owner --no-privileges --no-tablespaces > "$SCHEMA_FILE" || {
         log_error "Failed to export development schema via Docker"
         exit 1
     }
 else
     # Direct connection
     pg_dump "$DEV_DATABASE_URL" \
-        --schema-only --no-owner --no-privileges --no-tablespaces \
-        --exclude-table-data='_timescaledb_*' > "$SCHEMA_FILE" || {
+        --schema-only --no-owner --no-privileges --no-tablespaces > "$SCHEMA_FILE" || {
         log_error "Failed to export development schema"
         exit 1
     }
@@ -82,11 +96,7 @@ fi
 # Step 2: Clean the schema file
 log_info "🧽 Cleaning schema file for production..."
 cat "$SCHEMA_FILE" | \
-    grep -v "_timescaledb_internal" | \
-    grep -v "_hyper_" | \
-    sed '/^COMMENT ON EXTENSION/d' | \
-    sed '/^CREATE SCHEMA _timescaledb/d' | \
-    sed '/^GRANT.*_timescaledb/d' > "$TEMP_DIR/clean_schema.sql"
+    sed '/^COMMENT ON EXTENSION/d' > "$TEMP_DIR/clean_schema.sql"
 
 # Step 3: Create production-ready migration
 cat > "$TEMP_DIR/production_migration.sql" << 'EOF'

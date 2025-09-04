@@ -275,6 +275,7 @@ The Web3.py indexer populates business logic tables directly:
   - Increased column sizes: VARCHAR(42) → VARCHAR(100) for addresses, VARCHAR(66) → VARCHAR(100) for tx hashes
 - **Migration 034**: Added timestamp column to auctions table for indexer compatibility
 - **Migration 035**: Removed TimescaleDB extension, converted hypertables to regular PostgreSQL tables
+- **Database Refactoring**: Complete removal of TimescaleDB dependencies, now uses standard PostgreSQL with time-series indexing optimization
 
 ### Database User Standards
 
@@ -282,9 +283,60 @@ The Web3.py indexer populates business logic tables directly:
 
 #### User Account Rules
 
-- **Development Environment**:
+- **Development Environment**: ALWAYS use `postgres` user account for all database connections
   - Database: `auction_dev`
   - Connection: `postgresql://postgres:password@localhost:5433/auction_dev`
+  - Port: `5433` (Docker-mapped port)
+  - User: `postgres` (superuser with password authentication)
+  - **NEVER mix different users** - use `postgres` consistently across all services
+- **Production Environment**: Use service-specific users with minimal required privileges
+  - Database: `auction_prod`
+  - Connection: `postgresql://app_user:password@prod-host:5432/auction_prod`
+
+#### Common Pitfalls to Avoid
+
+- ❌ **DO NOT** mix `postgres` and local user (`wavey`) - this is the #1 source of confusion
+- ❌ **DO NOT** use different database users across services in the same environment
+- ❌ **DO NOT** mix database names (`auction` vs `auction_dev`)
+- ❌ **DO NOT** assume user permissions - always grant explicit access when setting up
+- ✅ **ALWAYS** use the same user account across all services in the same environment
+- ✅ **ALWAYS** verify the exact database user and name before connecting
+- ✅ **ALWAYS** use environment-specific database names (`_dev`, `_prod` suffixes)
+
+#### Container Setup Commands
+
+```bash
+# Ensure postgres user has proper privileges (run once)
+docker exec auction_postgres psql -U postgres -c "ALTER USER postgres WITH SUPERUSER;"
+
+# Grant all privileges on development database
+docker exec auction_postgres psql -U postgres -d auction_dev -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO postgres;"
+```
+
+#### Verification Steps
+
+Always verify database connection settings:
+
+```bash
+# Test connection works
+python3 -c "import psycopg2; conn = psycopg2.connect('postgresql://postgres:password@localhost:5433/auction_dev'); print('✅ Connection successful')"
+
+# Verify table access
+docker exec auction_postgres psql -U postgres -d auction_dev -c "SELECT COUNT(*) FROM auctions;"
+```
+
+#### LLM Development Note
+
+**CRITICAL FOR AI ASSISTANTS**: When working with this codebase, pay special attention to database user consistency:
+
+- **Always use `postgres` user** for all development database connections in this project
+- **Never suggest mixing `postgres` and `wavey` users** - this causes connection failures
+- **Always verify which user is configured** in `.env` files before suggesting database operations
+- **Reference the exact user account** when providing connection examples or troubleshooting
+- The `dev.sh` script automatically loads `DEV_DATABASE_URL=postgresql://postgres:password@localhost:5433/auction_dev`
+- All services (API, indexer, pricing) must use the same database user for consistency
+
+This prevents the most common development issues and ensures all services can access shared database resources.
 
 ## Frontend Architecture
 
@@ -798,7 +850,7 @@ npm run lint
 - ✅ **Table Renaming**: `auction_rounds` → `rounds`, `auction_sales` → `takes`
 - ✅ **Constraint Removal**: All foreign key constraints removed for development flexibility
 - ✅ **Column Size Increases**: Address fields (42→100), tx hashes (66→100), sale_id (100→200)
-- ✅ **Database User Standards**: Enforced `wavey` user for dev, standardized connection patterns
+- ✅ **Database User Standards**: Enforced `postgres` user for dev, standardized connection patterns
 - ✅ **Schema Migration**: Clean migration 008 with validation and rollback safety
 - ✅ **API Model Updates**: `AuctionSale` → `Take` with backward compatibility aliases
 

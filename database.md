@@ -4,7 +4,7 @@ This guide explains how to set up and access the PostgreSQL database used by the
 
 ## Overview
 
-The Auction System uses a **single PostgreSQL database** with **TimescaleDB extension** for all components:
+The Auction System uses a **single PostgreSQL database** for all components:
 
 - **API Server**: FastAPI backend for web interface
 - **Custom Web3.py Indexer**: Blockchain event indexer with factory pattern discovery
@@ -33,7 +33,7 @@ docker-compose up postgres
 #    - User: postgres
 #    - Password: password
 #    - Port: 5432 (mapped to host)
-#    - TimescaleDB extension enabled
+#    - PostgreSQL with standard tables
 #    - Schema automatically applied from data/postgres/schema.sql
 ```
 
@@ -55,11 +55,10 @@ If you prefer to use a local PostgreSQL installation instead of Docker.
 
 ```bash
 # macOS with Homebrew
-brew install postgresql timescaledb
+brew install postgresql
 
 # Ubuntu/Debian
 sudo apt-get install postgresql postgresql-contrib
-# Follow TimescaleDB installation: https://docs.timescale.com/install/latest/self-hosted/installation-linux/
 
 # Start PostgreSQL service
 brew services start postgresql  # macOS
@@ -71,7 +70,6 @@ sudo systemctl start postgresql # Linux
 ```bash
 # 1. Create database and user
 createdb auction
-psql auction -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 
 # 2. Apply schema
 psql auction < data/postgres/schema.sql
@@ -220,10 +218,10 @@ const pool = new Pool({
 #### Primary Tables (Application Data)
 
 - **`auctions`**: Contract parameters and metadata with unix timestamps
-- **`rounds`**: Individual auction rounds (hypertable) with kick timestamps
-- **`takes`**: Takes within rounds (hypertable) with transaction timestamps
+- **`rounds`**: Individual auction rounds with kick timestamps
+- **`takes`**: Takes within rounds with transaction timestamps
 - **`tokens`**: Token metadata cache with discovery timestamps
-- **`price_history`**: Price data over time (hypertable) with unix timestamps
+- **`price_history`**: Price data over time with unix timestamps
 - **`indexer_state`**: Per-factory indexer progress tracking
 
 #### Custom Web3.py Indexer Features
@@ -241,11 +239,11 @@ The custom indexer provides:
 - **`active_auction_rounds`**: Currently active rounds with calculated data
 - **`recent_takes`**: Recent takes with token metadata and unix timestamps
 
-### TimescaleDB Features
+### PostgreSQL Features
 
-- **Hypertables**: Time-series optimization for `rounds`, `takes`, `price_history`
-- **Automatic partitioning**: By time for efficient queries
-- **Continuous aggregates**: Available for analytics (optional)
+- **Time-based indexing**: Optimized queries for time-series data
+- **Efficient partitioning**: Manual partitioning available for large datasets
+- **Aggregation views**: Custom views for analytics
 
 ## Common Database Operations
 
@@ -343,21 +341,33 @@ psql postgres -c "ALTER USER postgres CREATEDB;"
 **Slow queries on time-series data**
 
 ```sql
--- Check hypertable status
-SELECT * FROM timescaledb_information.hypertables;
+-- Check table sizes and indexes
+SELECT schemaname, tablename, pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables 
+WHERE schemaname = 'public' 
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 
--- Manually create hypertables if needed
-SELECT create_hypertable('takes', 'timestamp', if_not_exists => TRUE);
-SELECT create_hypertable('rounds', 'kicked_at', if_not_exists => TRUE);
+-- Add indexes for time-based queries if needed
+CREATE INDEX CONCURRENTLY idx_takes_timestamp ON takes (timestamp);
+CREATE INDEX CONCURRENTLY idx_rounds_kicked_at ON rounds (kicked_at);
 ```
 
 **Database growing too large**
 
 ```sql
--- Set up data retention (optional)
-SELECT add_retention_policy('takes', INTERVAL '90 days');
-SELECT add_retention_policy('price_history', INTERVAL '30 days');
-SELECT add_retention_policy('rounds', INTERVAL '180 days');
+-- Implement manual data retention
+DELETE FROM takes WHERE timestamp < NOW() - INTERVAL '90 days';
+DELETE FROM price_history WHERE timestamp < NOW() - INTERVAL '30 days';
+DELETE FROM rounds WHERE kicked_at < NOW() - INTERVAL '180 days';
+
+-- Or create a retention job
+CREATE OR REPLACE FUNCTION cleanup_old_data() RETURNS void AS $$
+BEGIN
+    DELETE FROM takes WHERE timestamp < NOW() - INTERVAL '90 days';
+    DELETE FROM price_history WHERE timestamp < NOW() - INTERVAL '30 days';
+    DELETE FROM rounds WHERE kicked_at < NOW() - INTERVAL '180 days';
+END;
+$$ LANGUAGE plpgsql;
 ```
 
 ## Backup and Restore
@@ -430,15 +440,64 @@ DATABASE_URL="postgresql://auctions_user:secure_password@db.example.com:5433/auc
 
 ### Production Considerations
 
-- **Managed database service** (AWS RDS, Google Cloud SQL)
+- **Managed PostgreSQL service** (AWS RDS, Google Cloud SQL, Azure Database)
 - **Connection pooling** (PgBouncer, built-in pooling)
 - **Read replicas** for analytics and reporting
 - **Automated backups** and point-in-time recovery
 - **Monitoring and alerting** (pg_stat_statements, CloudWatch, etc.)
 - **SSL/TLS encryption** in transit and at rest
+- **Table partitioning** for large time-series tables
+
+## Production Database Sync
+
+### Fresh Production Installation
+
+For new production deployments, the production database needs to be synchronized with the development database schema:
+
+```bash
+# 1. Ensure .env file is configured with production DATABASE_URL
+# 2. Run the production sync script
+./scripts/sync_prod_with_dev_schema.sh
+```
+
+**What the sync script does:**
+- Extracts current dev database schema using Docker pg_dump (avoids version mismatch)
+- Creates a simplified migration that drops and recreates all tables
+- Preserves important production data (indexer_state, auctions) if it exists
+- Applies the exact dev schema structure to production
+- Sets proper ownership to auction user
+
+**Key features:**
+- ✅ Handles PostgreSQL version differences between dev and prod
+- ✅ Safe for empty production databases (no data loss risk)
+- ✅ Creates missing columns like `round_start` and `round_end`
+- ✅ Removes obsolete columns and ensures clean schema
+- ✅ Includes verification of critical table structures
+
+**Prerequisites:**
+- Development database must be running (Docker: `docker-compose up postgres`)
+- Production database user must have schema ownership privileges
+- `.env` file must contain valid `DATABASE_URL` and `DEV_DATABASE_URL`
+
+### Schema Sync Troubleshooting
+
+**"Permission denied to drop schema"**
+```bash
+# Fix schema ownership on production
+sudo -u postgres psql auction_prod -c "ALTER SCHEMA public OWNER TO auction;"
+```
+
+**"PostgreSQL version mismatch"**
+- The sync script automatically uses Docker pg_dump to avoid this issue
+- No action needed if Docker container is running
+
+**"Missing round_start/round_end columns"**
+- This indicates the sync hasn't completed successfully
+- Re-run the sync script after fixing any permission issues
 
 ## Next Steps
 
+### Development Setup
 1. **Start with Docker** for development: `docker-compose up postgres`
 2. **Connect with psql**: `psql $DATABASE_URL`
 3. **Explore the schema**: `\dt` to list tables, `\d table_name` for structure
@@ -446,4 +505,11 @@ DATABASE_URL="postgresql://auctions_user:secure_password@db.example.com:5433/auc
 5. **Set up Custom Indexer**: Configure Web3.py indexer with per-factory tracking
 6. **Monitor data flow**: Watch tables populate as events are indexed
 
-For production deployment, refer to `architecture.md` for comprehensive setup instructions.
+### Production Setup
+1. **Configure production environment**: Update `.env` with production `DATABASE_URL`
+2. **Sync database schema**: Run `./scripts/sync_prod_with_dev_schema.sh`
+3. **Verify schema**: Test critical queries like `SELECT round_end, round_start FROM rounds`
+4. **Start services**: Run production API and indexer services
+5. **Monitor indexing**: Check indexer_state table for blockchain sync progress
+
+For comprehensive deployment instructions, refer to `architecture.md`.
