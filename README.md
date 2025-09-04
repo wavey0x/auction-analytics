@@ -156,13 +156,22 @@ In development mode, the indexer configuration is generated dynamically to match
 
 ## 🗄️ Database Schema
 
-**Multi-chain native design** - all tables include `chain_id`:
+**PostgreSQL database** with multi-chain native design - all tables include `chain_id`:
 
-- **auctions**: Contract metadata per chain
-- **auction_rounds**: Round tracking with incremental IDs
-- **auction_sales**: Individual takes with sequence numbers
+- **auctions**: Contract metadata per chain with timestamp fields for blockchain data
+- **rounds**: Round tracking with incremental IDs and blockchain timestamps
+- **takes**: Individual takes with sequence numbers and transaction timing
 - **tokens**: ERC20 metadata cache across chains
-- **price_history**: Time-series price data (TimescaleDB optimized)
+- **price_requests**: Price monitoring and token price data
+- **token_prices**: Historical price data for USD calculations
+- **enabled_tokens**: Track tokens enabled for each auction
+- **indexer_state**: Blockchain indexing progress per chain
+
+**Schema Features**:
+- All tables include bigint `timestamp` fields containing actual blockchain timestamps (never defaults)
+- Generous column sizing (VARCHAR(100) for addresses, VARCHAR(200) for IDs)
+- Optimized indexes for common queries (auctions by status, takes by taker)
+- **Database Setup**: Use `./setup_database.sh` for fresh installations
 
 ## 📊 API Endpoints
 
@@ -380,12 +389,12 @@ GET  /redoc                                           # ReDoc API documentation
 
 ### Database Integration
 
-The API uses **PostgreSQL with TimescaleDB** for optimal time-series performance:
+The API uses **PostgreSQL** for optimal performance:
 
 - **Real-time USD calculations** via database views and LATERAL joins with token price data
 - **Multi-chain support** with `chain_id` fields across all tables
 - **Optimized indexes** for frequent queries (taker rankings, auction filtering)
-- **Materialized views** for complex aggregations (taker statistics, system stats)
+- **Blockchain timestamps** stored as bigint fields for accurate time-series data
 
 ### Authentication & Rate Limiting
 

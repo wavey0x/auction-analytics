@@ -15,7 +15,7 @@
 ### Backend
 
 - **API**: FastAPI with Python 3.9+ for RESTful endpoints
-- **Database**: PostgreSQL with TimescaleDB for time-series data
+- **Database**: PostgreSQL (standard) for all data storage
 - **Indexing**: Custom Web3.py indexer for blockchain event processing
 - **Blockchain**: Smart contracts written in Solidity
 
@@ -97,7 +97,7 @@ DEV_FACTORY_ADDRESS=0x335796f7A0F72368D1588839e38f163d90C92C80
 MOCK_DATABASE_URL=           # Empty - no database needed
 MOCK_NETWORKS_ENABLED=ethereum,polygon,arbitrum,optimism,base,local
 
-# Production/default mode variables
+# Production/default mode variables (no prefix)
 DATABASE_URL=postgresql://username:password@prod-db-host:5432/auction_prod
 NETWORKS_ENABLED=ethereum,polygon,arbitrum,optimism,base
 ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR_KEY
@@ -241,7 +241,7 @@ All tables include `chain_id` fields for multi-network support:
 - **auctions**: Contract parameters per chain (renamed from auction_parameters)
 - **rounds**: Round tracking with incremental round_id per auction
 - **takes**: Individual takes with sequence numbers per round
-- **price_history**: Time-series price data optimized with TimescaleDB
+- **price_history**: Time-series price data with indexed timestamps
 
 **Custom Indexer Tables:**
 The Web3.py indexer populates business logic tables directly:
@@ -273,6 +273,8 @@ The Web3.py indexer populates business logic tables directly:
   - `auction_sales` → `takes`
   - Removed all foreign key constraints for better reliability
   - Increased column sizes: VARCHAR(42) → VARCHAR(100) for addresses, VARCHAR(66) → VARCHAR(100) for tx hashes
+- **Migration 034**: Added timestamp column to auctions table for indexer compatibility
+- **Migration 035**: Removed TimescaleDB extension, converted hypertables to regular PostgreSQL tables
 
 ### Database User Standards
 
@@ -280,60 +282,9 @@ The Web3.py indexer populates business logic tables directly:
 
 #### User Account Rules
 
-- **Development Environment**: ALWAYS use consistent database user account for all database connections
+- **Development Environment**:
   - Database: `auction_dev`
   - Connection: `postgresql://postgres:password@localhost:5433/auction_dev`
-  - Port: `5433` (NOT 5432 - this is the Docker-mapped port)
-  - User: `postgres` (superuser with password authentication)
-  - **NEVER mix different users** - use `postgres` consistently across all services
-- **Production Environment**: Use service-specific users with minimal required privileges
-  - Database: `auction_prod`
-  - Connection: `postgresql://app_user:password@prod-host:5432/auction_prod`
-
-#### Common Pitfalls to Avoid
-
-- ❌ **DO NOT** mix `postgres` and local user (`wavey`) - this is the #1 source of confusion
-- ❌ **DO NOT** use `postgres` superuser for application services in development
-- ❌ **DO NOT** mix database names (`auction` vs `auction_dev`)
-- ❌ **DO NOT** assume user permissions - always grant explicit access when setting up
-- ✅ **ALWAYS** use the same user account across all services in the same environment
-- ✅ **ALWAYS** verify the exact database user and name before connecting
-- ✅ **ALWAYS** use environment-specific database names (`_dev`, `_prod` suffixes)
-
-#### Container Setup Commands
-
-```bash
-# Create wavey user with proper privileges (run once)
-docker exec auction_postgres psql -U postgres -c "CREATE USER wavey WITH SUPERUSER PASSWORD 'password';"
-
-# Grant all privileges on development database
-docker exec auction_postgres psql -U postgres -d auction_dev -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO wavey; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO wavey;"
-```
-
-#### Verification Steps
-
-Always verify database connection settings:
-
-```bash
-# Test connection works
-python3 -c "import psycopg2; conn = psycopg2.connect('postgresql://wavey@localhost:5432/auction_dev'); print('✅ Connection successful')"
-
-# Verify table access
-docker exec auction_postgres psql -U wavey -d auction_dev -c "SELECT COUNT(*) FROM auctions;"
-```
-
-#### LLM Development Note
-
-**CRITICAL FOR AI ASSISTANTS**: When working with this codebase, pay special attention to database user consistency:
-
-- **Always use `wavey` user** for all development database connections in this project
-- **Never suggest mixing `postgres` and `wavey` users** - this causes connection failures
-- **Always verify which user is configured** in `.env` files before suggesting database operations
-- **Reference the exact user account** when providing connection examples or troubleshooting
-- The `dev.sh` script automatically loads `DEV_DATABASE_URL=postgresql://wavey@localhost:5432/auction_dev`
-- All services (API, indexer, pricing) must use the same database user for consistency
-
-This prevents the most common development issues and ensures all services can access shared database resources.
 
 ## Frontend Architecture
 
@@ -862,11 +813,14 @@ npm run lint
 
 ### Configuration Simplification (September 2025)
 
+- ✅ **Environment Variables Prefix Removal**: Eliminated "PROD\_" prefix from all production variables
+- ✅ **Simplified Configuration**: Production variables now use no prefix (DATABASE_URL instead of PROD_DATABASE_URL)
 - ✅ **Start Block Configuration Removal**: Eliminated duplicate start_block configuration from API config.py
 - ✅ **Single Source of Truth**: Start blocks now only configured in indexer/config.yaml where they're actually needed
 - ✅ **Environment Variables Cleanup**: Removed all START_BLOCK environment variables (ETHEREUM_START_BLOCK, etc.)
 - ✅ **API Endpoints Updated**: Removed start_block fields from /chains and /network/{id} endpoints
-- ✅ **Documentation Updates**: Updated all docs to reflect that start blocks are indexer-only configuration
+- ✅ **TimescaleDB Removal**: Completely removed TimescaleDB extension, converted to standard PostgreSQL
+- ✅ **Documentation Updates**: Updated all docs to reflect simplified configuration and standard PostgreSQL usage
 
 ### Code Quality Improvements
 
@@ -889,8 +843,8 @@ npm run lint
 
 ### Backend Optimization
 
-- TimescaleDB for time-series data performance
-- Database indexes for common query patterns
+- Standard PostgreSQL indexes for query optimization
+- Time-based indexes for time-series data performance
 - API response pagination for large datasets
 - Connection pooling for high load scenarios
 
@@ -901,13 +855,74 @@ npm run lint
 - TypeScript for early error detection
 - Unified scripts for consistent environments
 
+## TimescaleDB Removal
+
+### Background
+
+The project originally used TimescaleDB extension for time-series optimization but was simplified to use standard PostgreSQL for easier deployment and maintenance.
+
+### Migration Process
+
+**Automated Removal Script**: `./scripts/remove_timescaledb.sh`
+
+This script automatically:
+
+1. Detects environment (dev/prod) based on `APP_MODE` in `.env`
+2. Creates migration 035 to remove TimescaleDB extension
+3. Converts hypertables back to regular PostgreSQL tables
+4. Updates Docker Compose to use standard `postgres:15` image
+5. Cleans schema files and sync scripts
+6. Creates backups of all modified files
+
+**Usage:**
+
+```bash
+# Automatically detects dev or prod based on APP_MODE
+./scripts/remove_timescaledb.sh
+
+# The script will:
+# - Read APP_MODE from .env file
+# - Use appropriate DATABASE_URL (DEV_DATABASE_URL or DATABASE_URL)
+# - Apply migration to correct database only
+# - Create backups before making changes
+```
+
+**Benefits of Removal:**
+
+- ✅ **Simpler Deployment**: No special extension installation required
+- ✅ **Better Compatibility**: Standard PostgreSQL works everywhere
+- ✅ **Easier Development**: No container image dependencies
+- ✅ **Maintained Performance**: Standard indexes provide adequate performance
+- ✅ **Reduced Complexity**: Fewer moving parts to manage
+
+### Database Schema Impact
+
+**Before (TimescaleDB):**
+
+- `takes`, `rounds`, `price_history` were hypertables
+- Required TimescaleDB extension installation
+- Automatic partitioning by time
+
+**After (Standard PostgreSQL):**
+
+- All tables are regular PostgreSQL tables
+- Manual indexes for time-based queries
+- Same data structure and performance for typical workloads
+
+**Migration 035 Details:**
+
+- Preserves all existing data
+- Removes TimescaleDB extension safely
+- Adds standard indexes for time-based queries
+- Validates data integrity after conversion
+
 ## Documentation Links
 
 ### Official Documentation
 
 - **Rindexer Factory Pattern**: https://rindexer.xyz/docs/start-building/yaml-config/contracts#factory
 - **Rindexer Configuration**: https://rindexer.xyz/docs/start-building/yaml-config
-- **TimescaleDB**: https://docs.timescale.com/
+- **PostgreSQL**: https://www.postgresql.org/docs/
 - **FastAPI**: https://fastapi.tiangolo.com/
 
 This system provides a robust foundation for monitoring Dutch auction activity across multiple blockchain networks with a modern, responsive user interface and efficient backend architecture.

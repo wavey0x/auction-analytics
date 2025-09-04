@@ -4,15 +4,8 @@
 -- One-shot schema that includes all tables, indexes, and seed data
 -- Works with or without TimescaleDB, supports all deployment modes
 
--- Enable TimescaleDB extension for time-series data (optional)
-DO $$ 
-BEGIN
-    CREATE EXTENSION IF NOT EXISTS timescaledb;
-    RAISE NOTICE '✅ TimescaleDB extension enabled for optimal performance';
-EXCEPTION 
-    WHEN others THEN
-        RAISE NOTICE '⚠️  TimescaleDB not available, using standard PostgreSQL (still works fine)';
-END $$;
+-- This schema uses standard PostgreSQL for maximum compatibility
+-- TimescaleDB has been removed for simpler deployment and maintenance
 
 -- =============================================================================
 -- TOKEN METADATA CACHE
@@ -28,7 +21,7 @@ CREATE TABLE tokens (
     -- Metadata
     first_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    timestamp BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+    timestamp BIGINT,
     
     UNIQUE (address, chain_id)
 );
@@ -46,17 +39,14 @@ CREATE TABLE auctions (
     auction_address VARCHAR(100) NOT NULL,
     chain_id INTEGER NOT NULL DEFAULT 1,
     
-    -- Auction parameters
-    price_update_interval INTEGER NOT NULL DEFAULT 36,
-    step_decay DECIMAL(30,0), -- Legacy RAY precision field
-    step_decay_rate DECIMAL(30,0), -- Decay rate per step (RAY format)
+    -- Auction parameters (cleaned schema)
+    update_interval INTEGER DEFAULT 36, -- Update interval in seconds
     auction_length INTEGER DEFAULT 3600, -- Duration in seconds
-    starting_price DECIMAL(30,0), -- Fixed starting price in wei, NULL for dynamic
+    starting_price NUMERIC(40,18), -- Starting price in wei with decimal precision
     
     -- Human-readable fields for indexer compatibility
     version VARCHAR(20) DEFAULT '0.1.0', -- Contract version: 0.0.1 (legacy) or 0.1.0 (modern)
-    decay_rate DECIMAL(10,4) DEFAULT 0.005, -- Human-readable decay rate (0.005 = 0.5%)
-    update_interval INTEGER DEFAULT 36, -- Update interval in seconds
+    decay_rate DECIMAL(10,8) DEFAULT 0.005, -- Human-readable decay rate (0.005 = 0.5%)
     
     -- Token addresses
     want_token VARCHAR(100),
@@ -68,7 +58,7 @@ CREATE TABLE auctions (
     
     -- Discovery metadata
     discovered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    timestamp BIGINT, -- Unix timestamp when auction was deployed (from block timestamp)
+    timestamp BIGINT, -- Unix timestamp when auction was deployed
     factory_address VARCHAR(100),
     
     PRIMARY KEY (auction_address, chain_id)
@@ -108,6 +98,7 @@ CREATE TABLE rounds (
     -- Block data
     block_number BIGINT NOT NULL,
     transaction_hash VARCHAR(100) NOT NULL,
+    timestamp BIGINT, -- Unix timestamp for consistent querying
     
     PRIMARY KEY (auction_address, chain_id, round_id)
 );
@@ -115,6 +106,7 @@ CREATE TABLE rounds (
 -- Indexes for rounds table
 CREATE INDEX idx_rounds_active ON rounds (is_active);
 CREATE INDEX idx_rounds_kicked_at ON rounds (kicked_at DESC);
+CREATE INDEX idx_rounds_timestamp ON rounds (timestamp DESC);
 CREATE INDEX idx_rounds_chain ON rounds (chain_id);
 CREATE INDEX idx_rounds_from_token ON rounds (from_token);
 CREATE INDEX idx_rounds_auction_chain_available_pos ON rounds (auction_address, chain_id) WHERE available_amount > 0;
@@ -164,15 +156,7 @@ CREATE INDEX idx_takes_round ON takes (auction_address, chain_id, round_id);
 CREATE INDEX idx_takes_taker ON takes (taker);
 CREATE INDEX idx_takes_tx_hash ON takes (transaction_hash);
 
--- Make takes a hypertable for time-series optimization (if TimescaleDB available)
-DO $$
-BEGIN
-    PERFORM create_hypertable('takes', 'timestamp', if_not_exists => TRUE);
-    RAISE NOTICE '✅ TimescaleDB hypertable created for takes table';
-EXCEPTION 
-    WHEN others THEN
-        RAISE NOTICE 'ℹ️  Using regular PostgreSQL table for takes (TimescaleDB not available)';
-END $$;
+-- Using standard PostgreSQL tables for maximum compatibility
 
 -- =============================================================================
 -- INDEXER STATE TRACKING
@@ -184,12 +168,14 @@ CREATE TABLE indexer_state (
     last_indexed_block INTEGER NOT NULL DEFAULT 0,
     start_block INTEGER NOT NULL DEFAULT 0,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    timestamp BIGINT, -- Unix timestamp for consistent querying
     
     PRIMARY KEY (chain_id, factory_address)
 );
 
 -- Indexes for indexer_state
 CREATE INDEX idx_indexer_state_updated ON indexer_state (updated_at);
+CREATE INDEX idx_indexer_state_timestamp ON indexer_state (timestamp DESC);
 CREATE INDEX idx_indexer_state_factory_type ON indexer_state (factory_type);
 
 -- =============================================================================

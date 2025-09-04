@@ -7,9 +7,11 @@ abis:
 database:
   url: ${DATABASE_URL}
 indexer:
-  auction_batch_size: 100
+  auction_batch_size: 10 # max length of array to use in get_logs per request
   log_level: INFO
   poll_interval: 10
+pricing:
+  quote_api_max_age_minutes: 20
 networks:
   ethereum:
     chain_id: 1

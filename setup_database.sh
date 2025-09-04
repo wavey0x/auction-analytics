@@ -3,7 +3,7 @@
 # AUCTION ANALYTICS - ONE-SHOT DATABASE SETUP
 # =============================================================================
 # This script sets up a complete, production-ready database from scratch
-# Works with PostgreSQL (native or Docker), with or without TimescaleDB
+# Works with PostgreSQL (native or Docker) using standard PostgreSQL
 
 set -euo pipefail
 
@@ -258,7 +258,7 @@ echo "  • Views created: $VIEW_COUNT (includes vw_auctions)"
 echo "  • Token seeds: $TOKEN_COUNT"
 echo "  • Indexes: ✅ Created"
 echo "  • Triggers: ✅ Active"
-echo "  • TimescaleDB: $(psql "$DB_URL" -tAc "SELECT CASE WHEN EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN 'Enabled' ELSE 'Not available' END;" 2>/dev/null || echo "Not available")"
+echo "  • Database Type: Standard PostgreSQL (TimescaleDB removed for simplicity)"
 echo ""
 echo "🚀 Next Steps:"
 echo "  1. Set environment variables:"

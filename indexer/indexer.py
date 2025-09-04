@@ -528,13 +528,13 @@ class AuctionIndexer:
                 # step_decay_rate is in RAY format (1e27), so divide by 1e27 then subtract from 1
                 decay_rate = 1.0 - (float(step_decay_rate_wei) / 1e27)
                 
-                # Get starting price (human-readable)
+                # Get starting price (store in wei for precision)
                 try:
                     starting_price_wei = auction_contract.functions.startingPrice().call()
-                    # Convert from wei to human-readable (assuming 18 decimals for now)
-                    starting_price = float(starting_price_wei) / 1e18
+                    # Store the wei value directly for maximum precision
+                    starting_price = starting_price_wei
                 except:
-                    starting_price = 0.0  # Default if not available
+                    starting_price = 0  # Default if not available
                 
                 # Get governance address
                 try:
@@ -559,14 +559,13 @@ class AuctionIndexer:
                     cursor.execute("""
                         INSERT INTO auctions (
                             auction_address, chain_id, update_interval, 
-                            step_decay, decay_rate, auction_length, want_token,
+                            decay_rate, auction_length, want_token,
                             deployer, timestamp, factory_address, 
                             version, starting_price, governance
                         ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         ) ON CONFLICT (auction_address, chain_id) DO UPDATE SET
                             update_interval = EXCLUDED.update_interval,
-                            step_decay = EXCLUDED.step_decay,
                             decay_rate = EXCLUDED.decay_rate,
                             auction_length = EXCLUDED.auction_length,
                             want_token = EXCLUDED.want_token,
@@ -578,7 +577,7 @@ class AuctionIndexer:
                             governance = EXCLUDED.governance
                     """, (
                         auction_address, chain_id, price_update_interval,
-                        step_decay_rate_wei, decay_rate, auction_length, want_token,
+                        decay_rate, auction_length, want_token,
                         deployer, timestamp, factory_address,
                         '0.1.0' if factory_type == 'modern' else '0.0.1',
                         starting_price, governance_address

@@ -22,6 +22,7 @@ import logging
 import psycopg2
 import psycopg2.extras
 import argparse
+import yaml
 from typing import Optional, Tuple, Dict, Any, List
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -77,10 +78,15 @@ class UnifiedPricingService:
         self.ypm_timeout = float(ypm_timeout)
         self.quote_timeout = float(quote_timeout)
 
-        # Recency window for quote APIs
-        app_mode = os.getenv('APP_MODE', 'dev').lower()
-        env_key = f"{app_mode.upper()}_QUOTE_API_MAX_AGE_MINUTES"
-        self.quote_max_age_minutes = int(os.getenv(env_key, '10'))
+        # Recency window for quote APIs from config.yaml
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'indexer', 'config.yaml')
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            self.quote_max_age_minutes = config.get('pricing', {}).get('quote_api_max_age_minutes', 10)
+        except Exception as e:
+            logger.warning(f"Failed to load config from {config_path}: {e}. Using default 10 minutes.")
+            self.quote_max_age_minutes = 10
 
         self.db_conn = self._init_db()
         self.db_conn.autocommit = True
@@ -300,8 +306,14 @@ class UnifiedPricingService:
             if s == 'ypm':
                 sources_to_call.append('ypm')
             elif s in ('enso', 'odos'):
-                if not is_eth and allow_quotes:
+                if is_eth:
+                    logger.debug(f"Skipping {s} for ETH token (not supported)")
+                elif not allow_quotes:
+                    age_minutes = (int(time.time()) - int(txn_ts)) // 60 if txn_ts else 0
+                    logger.debug(f"Skipping {s} for old transaction (age: {age_minutes}min > {self.quote_max_age_minutes}min)")
+                else:
                     sources_to_call.append(s)
+                    logger.debug(f"Including {s} for recent transaction")
 
         results: Dict[str, Dict[str, Any]] = {}
         if not sources_to_call:
