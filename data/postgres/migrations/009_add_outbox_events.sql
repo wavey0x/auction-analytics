@@ -41,13 +41,13 @@ CREATE TABLE IF NOT EXISTS outbox_events (
 );
 
 -- Indexes for efficient polling
-CREATE INDEX idx_outbox_unpublished ON outbox_events (id) 
+CREATE INDEX IF NOT EXISTS idx_outbox_unpublished ON outbox_events (id) 
     WHERE published_at IS NULL;
-CREATE INDEX idx_outbox_chain_block ON outbox_events (chain_id, block_number);
-CREATE INDEX idx_outbox_created ON outbox_events (created_at);
+CREATE INDEX IF NOT EXISTS idx_outbox_chain_block ON outbox_events (chain_id, block_number);
+CREATE INDEX IF NOT EXISTS idx_outbox_created ON outbox_events (created_at);
 
 -- For monitoring stuck events
-CREATE INDEX idx_outbox_retries ON outbox_events (retries) 
+CREATE INDEX IF NOT EXISTS idx_outbox_retries ON outbox_events (retries) 
     WHERE published_at IS NULL AND retries > 3;
 
 -- Verification
