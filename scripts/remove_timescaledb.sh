@@ -22,9 +22,38 @@ if [ -f .env ]; then
     set +a
 fi
 
-# Database URLs
-DEV_DB="${DEV_DATABASE_URL:-postgresql://postgres:password@localhost:5433/auction_dev}"
-PROD_DB="${DATABASE_URL:-}"
+# Get APP_MODE and determine target database
+APP_MODE="${APP_MODE:-dev}"
+log_info "Detected APP_MODE: $APP_MODE"
+
+# Determine which database to use based on APP_MODE
+case "$APP_MODE" in
+    "dev"|"development")
+        TARGET_DB="${DEV_DATABASE_URL:-}"
+        DB_NAME="DEVELOPMENT"
+        ;;
+    "prod"|"production")
+        TARGET_DB="${DATABASE_URL:-}"
+        DB_NAME="PRODUCTION"
+        ;;
+    "mock")
+        log_warn "APP_MODE is 'mock' - no database operations needed"
+        exit 0
+        ;;
+    *)
+        log_error "Unknown APP_MODE: $APP_MODE (expected: dev, prod, or mock)"
+        exit 1
+        ;;
+esac
+
+if [ -z "$TARGET_DB" ]; then
+    log_error "No database URL found for APP_MODE: $APP_MODE"
+    log_error "Expected environment variable: ${APP_MODE^^}_DATABASE_URL or DATABASE_URL"
+    exit 1
+fi
+
+log_info "Target database: $DB_NAME"
+log_info "Database URL: ${TARGET_DB%%:*}://***@${TARGET_DB#*@}"
 
 # =============================================================================
 # STEP 1: Create Migration SQL
@@ -125,42 +154,31 @@ EOF
 log_info "Migration file created: data/postgres/migrations/035_remove_timescaledb.sql"
 
 # =============================================================================
-# STEP 2: Apply Migration to Development Database
+# STEP 2: Apply Migration to Target Database
 # =============================================================================
-if [ -n "$DEV_DB" ]; then
-    log_info "Applying migration to DEVELOPMENT database..."
-    
-    # Check if we're using Docker
-    if command -v docker &> /dev/null && docker ps | grep -q auction_postgres; then
-        log_info "Using Docker container for dev database..."
-        docker exec -i auction_postgres psql -U postgres -d auction_dev < data/postgres/migrations/035_remove_timescaledb.sql
-    else
-        log_info "Using direct connection to dev database..."
-        psql "$DEV_DB" < data/postgres/migrations/035_remove_timescaledb.sql
-    fi
-    
-    log_info "✅ Development database updated"
-else
-    log_warn "No development database URL found, skipping dev update"
-fi
+log_info "Applying migration to $DB_NAME database..."
 
-# =============================================================================
-# STEP 3: Apply Migration to Production Database
-# =============================================================================
-if [ -n "$PROD_DB" ]; then
-    log_warn "About to modify PRODUCTION database!"
+# Add confirmation for production
+if [ "$APP_MODE" = "prod" ] || [ "$APP_MODE" = "production" ]; then
+    log_warn "⚠️  About to modify PRODUCTION database!"
     read -p "Are you sure you want to remove TimescaleDB from PRODUCTION? (yes/no): " confirm
     
-    if [ "$confirm" = "yes" ]; then
-        log_info "Applying migration to PRODUCTION database..."
-        psql "$PROD_DB" < data/postgres/migrations/035_remove_timescaledb.sql
-        log_info "✅ Production database updated"
-    else
+    if [ "$confirm" != "yes" ]; then
         log_warn "Skipped production database update"
+        exit 0
     fi
-else
-    log_warn "No production database URL found, skipping prod update"
 fi
+
+# Apply the migration
+if [ "$APP_MODE" = "dev" ] && command -v docker &> /dev/null && docker ps | grep -q auction_postgres; then
+    log_info "Using Docker container for dev database..."
+    docker exec -i auction_postgres psql -U postgres -d auction_dev < data/postgres/migrations/035_remove_timescaledb.sql
+else
+    log_info "Using direct connection to $DB_NAME database..."
+    psql "$TARGET_DB" < data/postgres/migrations/035_remove_timescaledb.sql
+fi
+
+log_info "✅ $DB_NAME database updated"
 
 # =============================================================================
 # STEP 4: Update Docker Compose
