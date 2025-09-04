@@ -5,6 +5,7 @@
 
 import { type Address, type Abi } from 'viem'
 import { getRPCClient, rpcService } from './rpcService'
+import { rpcHealthMonitor } from './rpcHealthMonitor'
 
 // Minimal ABI for auction contract functions we need
 export const AUCTION_ABI = [
@@ -84,12 +85,20 @@ class MulticallService {
     chainId: number, 
     contracts: MulticallContract[]
   ): Promise<any[]> {
+    const startTime = Date.now()
+    
     const client = await getRPCClient(chainId)
     if (!client) {
+      const duration = Date.now() - startTime
+      const errorMsg = `No RPC client available for chain ${chainId}`
+      
+      // Record failure in health monitor
+      rpcHealthMonitor.recordFailure(chainId, duration, errorMsg)
+      
       if (rpcService.isCustomRPCEnabled()) {
-        rpcService.reportCustomRPCError(new Error(`No RPC client available for chain ${chainId}`))
+        rpcService.reportCustomRPCError(new Error(errorMsg))
       }
-      throw new Error(`No RPC client available for chain ${chainId}`)
+      throw new Error(errorMsg)
     }
 
     try {
@@ -101,6 +110,11 @@ class MulticallService {
           args: contract.args
         }))
       })
+
+      const duration = Date.now() - startTime
+      
+      // Record success in health monitor
+      rpcHealthMonitor.recordSuccess(chainId, duration)
 
       return results.map((result, index) => {
         if (result.status === 'success') {
@@ -114,7 +128,14 @@ class MulticallService {
         }
       })
     } catch (error) {
+      const duration = Date.now() - startTime
+      const errorMsg = error instanceof Error ? error.message : 'Unknown multicall error'
+      
       console.error(`Multicall batch failed for chain ${chainId}:`, error)
+      
+      // Record failure in health monitor
+      rpcHealthMonitor.recordFailure(chainId, duration, errorMsg)
+      
       // If custom RPC is enabled, notify to surface a warning in the UI
       if (rpcService.isCustomRPCEnabled()) {
         rpcService.reportCustomRPCError(error)

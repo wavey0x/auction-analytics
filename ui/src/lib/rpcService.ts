@@ -87,8 +87,11 @@ class RPCService {
         // Clean URL without credentials
         const cleanUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}${urlObj.search}${urlObj.hash}`
         
-        // Create transport with proper auth headers
+        // Create transport with proper auth headers and timeout config
         return http(cleanUrl, {
+          timeout: 10000, // 10 second timeout
+          retryCount: 3,
+          retryDelay: ({ count }) => Math.min(1000 * Math.pow(2, count), 5000), // Exponential backoff, max 5s
           fetchOptions: auth ? {
             headers: {
               'Authorization': `Basic ${auth}`
@@ -96,12 +99,21 @@ class RPCService {
           } : undefined
         })
       } else {
-        // No credentials, use URL as-is
-        return http(url)
+        // No credentials, use URL as-is with timeout config
+        return http(url, {
+          timeout: 10000, // 10 second timeout
+          retryCount: 3,
+          retryDelay: ({ count }) => Math.min(1000 * Math.pow(2, count), 5000) // Exponential backoff, max 5s
+        })
       }
     } catch (error) {
       console.error('Invalid RPC URL:', url, error)
-      return http(url) // Fallback to original URL
+      // Fallback to original URL with timeout config
+      return http(url, {
+        timeout: 10000,
+        retryCount: 3,
+        retryDelay: ({ count }) => Math.min(1000 * Math.pow(2, count), 5000)
+      })
     }
   }
 
@@ -117,7 +129,11 @@ class RPCService {
     if (viemChain) {
       return createPublicClient({
         chain: viemChain,
-        transport: useCustom ? this.createHttpTransport(this.customRpcUrl!) : http()
+        transport: useCustom ? this.createHttpTransport(this.customRpcUrl!) : http({
+          timeout: 10000,
+          retryCount: 3,
+          retryDelay: ({ count }) => Math.min(1000 * Math.pow(2, count), 5000)
+        })
       })
     }
     
@@ -154,7 +170,11 @@ class RPCService {
     
     return createPublicClient({
       chain: customChain,
-      transport: useCustom ? this.createHttpTransport(this.customRpcUrl!) : http(rpcUrl)
+      transport: useCustom ? this.createHttpTransport(this.customRpcUrl!) : http(rpcUrl, {
+        timeout: 10000,
+        retryCount: 3,
+        retryDelay: ({ count }) => Math.min(1000 * Math.pow(2, count), 5000)
+      })
     })
   }
   

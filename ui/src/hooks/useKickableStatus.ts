@@ -7,6 +7,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { type Address } from 'viem'
 import { getTokenSpecificAuctionData, type AuctionCall, type TokenSpecificResult } from '../lib/multicall'
 import type { AuctionListItem, Token } from '../types/auction'
+import { useErrors, createKickableError } from '../context/ErrorContext'
 
 // Result type for kickable status
 export interface KickableResult {
@@ -39,6 +40,7 @@ export function useKickableStatus(
   auctions: AuctionListItem[],
   refetchInterval: number = 300000 // 5 minutes - longer cache for kickable
 ): UseQueryResult<AuctionKickableStatus, Error> {
+  const { addError } = useErrors()
   
   return useQuery({
     queryKey: ['kickable-status', auctions.map(a => `${a.chain_id}-${a.address}`).sort()],
@@ -94,6 +96,15 @@ export function useKickableStatus(
             return { chainId: parseInt(chainId), results }
           } catch (error) {
             console.error(`Failed to fetch kickable data for chain ${chainId}:`, error)
+            
+            // Report error to user via error notification
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+            addError(createKickableError(
+              `Chain ${chainId}`, 
+              parseInt(chainId),
+              `Kickable status check failed: ${errorMessage}`
+            ))
+            
             return { chainId: parseInt(chainId), results: {} }
           }
         })

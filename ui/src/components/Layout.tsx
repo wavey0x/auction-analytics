@@ -3,11 +3,13 @@ import { Link, useLocation } from 'react-router-dom'
 import { Gavel, Activity, TrendingUp, Settings, Book } from 'lucide-react'
 import SettingsModal from './SettingsModal'
 import NotificationContainer from './NotificationContainer'
+import ErrorNotification from './ErrorNotification'
 import { useUserSettings } from '../context/UserSettingsContext'
 import { useNotifications } from '../context/NotificationContext'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
 import { eventStreamService } from '../services/eventStreamService'
+import { rpcHealthMonitor } from '../lib/rpcHealthMonitor'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -75,9 +77,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const services = statusData.services || []
     const anyDown = services.some((s: any) => s.status === 'down')
     const anyWarn = services.some((s: any) => s.status === 'degraded' || s.status === 'unknown')
-    if (anyDown) { healthLabel = 'Unhealthy'; healthColor = 'text-red-400'; healthBg = 'bg-red-400' }
-    else if (anyWarn) { healthLabel = 'Degraded'; healthColor = 'text-yellow-400'; healthBg = 'bg-yellow-400' }
-    else { healthLabel = 'Healthy'; healthColor = 'text-green-400'; healthBg = 'bg-green-400' }
+    
+    // Also check RPC health
+    const rpcHealth = rpcHealthMonitor.getHealthSummary()
+    const rpcDown = rpcHealth.overallStatus === 'down'
+    const rpcDegraded = rpcHealth.overallStatus === 'degraded'
+    
+    if (anyDown || rpcDown) { 
+      healthLabel = 'Unhealthy'
+      healthColor = 'text-red-400'
+      healthBg = 'bg-red-400' 
+    } else if (anyWarn || rpcDegraded) { 
+      healthLabel = 'Degraded'
+      healthColor = 'text-yellow-400'
+      healthBg = 'bg-yellow-400' 
+    } else { 
+      healthLabel = 'Healthy'
+      healthColor = 'text-green-400'
+      healthBg = 'bg-green-400' 
+    }
   }
 
   return (
@@ -180,6 +198,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Settings Modal */}
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      
+      {/* Error Notification (above footer) */}
+      <ErrorNotification />
       
       {/* Notification Container */}
       <NotificationContainer />

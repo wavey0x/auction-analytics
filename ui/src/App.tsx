@@ -13,6 +13,7 @@ import { NavigationProvider } from "./contexts/NavigationProvider";
 import { UserSettingsProvider } from "./context/UserSettingsContext";
 import { AddressTagsProvider } from "./context/AddressTagsContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import { ErrorProvider } from "./context/ErrorContext";
 
 // Global refresh interval - change this to adjust all auto-refresh timing
 const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -58,7 +59,8 @@ function App() {
       <UserSettingsProvider>
         <AddressTagsProvider>
           <NotificationProvider>
-            <Router>
+            <ErrorProvider>
+              <Router>
           <HomeTabHashInitializer />
           <NavigationProvider>
             <Layout>
@@ -76,7 +78,8 @@ function App() {
               </Routes>
             </Layout>
           </NavigationProvider>
-            </Router>
+              </Router>
+            </ErrorProvider>
           </NotificationProvider>
         </AddressTagsProvider>
       </UserSettingsProvider>
