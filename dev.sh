@@ -214,9 +214,9 @@ load_environment() {
     export CORS_ORIGINS="${DEV_CORS_ORIGINS:-http://localhost:3000}"
     
     # Map production Ethereum variables for development indexing
-    export ETHEREUM_RPC_URL="${PROD_ETHEREUM_RPC_URL:-https://guest:guest@eth.wavey.info}"
-    export ETHEREUM_FACTORY_ADDRESS="${PROD_ETHEREUM_FACTORY_ADDRESS:-0xCfA510188884F199fcC6e750764FAAbE6e56ec40}"
-    export ETHEREUM_START_BLOCK="${PROD_ETHEREUM_START_BLOCK:-21835027}"
+    export ETHEREUM_RPC_URL="${ETHEREUM_RPC_URL:-https://guest:guest@eth.wavey.info}"
+    export ETHEREUM_FACTORY_ADDRESS="${ETHEREUM_FACTORY_ADDRESS:-0xCfA510188884F199fcC6e750764FAAbE6e56ec40}"
+    export ETHEREUM_START_BLOCK="${ETHEREUM_START_BLOCK:-21835027}"
     
     log "Environment loaded (mode: $APP_MODE)"
     log "Database: $DATABASE_URL"

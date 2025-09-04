@@ -50,7 +50,7 @@ class GasDataBackfiller:
             if app_mode == 'dev':
                 db_url = os.getenv('DEV_DATABASE_URL', 'postgresql://wavey@localhost:5432/auction_dev')
             elif app_mode == 'prod':
-                db_url = os.getenv('PROD_DATABASE_URL')
+                db_url = os.getenv('DATABASE_URL')
             else:
                 logger.error(f"Unsupported APP_MODE: {app_mode}")
                 sys.exit(1)
@@ -71,7 +71,7 @@ class GasDataBackfiller:
         """Initialize Web3 connections for all chains"""
         try:
             # Ethereum mainnet (chain_id = 1)
-            eth_rpc = os.getenv('PROD_ETHEREUM_RPC_URL', 'https://guest:guest@eth.wavey.info')
+            eth_rpc = os.getenv('ETHEREUM_RPC_URL', 'https://guest:guest@eth.wavey.info')
             if eth_rpc:
                 self.web3_connections[1] = Web3(Web3.HTTPProvider(eth_rpc))
                 logger.info("✅ Ethereum mainnet Web3 connection established")
@@ -89,7 +89,7 @@ class GasDataBackfiller:
                     logger.debug(f"Local RPC not available: {local_error}")
             
             # Polygon (chain_id = 137)
-            polygon_rpc = os.getenv('POLYGON_RPC_URL', os.getenv('PROD_POLYGON_RPC_URL'))
+            polygon_rpc = os.getenv('POLYGON_RPC_URL', os.getenv('POLYGON_RPC_URL'))
             if polygon_rpc:
                 try:
                     self.web3_connections[137] = Web3(Web3.HTTPProvider(polygon_rpc))
@@ -98,7 +98,7 @@ class GasDataBackfiller:
                     logger.debug(f"Polygon RPC error: {poly_error}")
             
             # Arbitrum (chain_id = 42161)
-            arbitrum_rpc = os.getenv('ARBITRUM_RPC_URL', os.getenv('PROD_ARBITRUM_RPC_URL'))
+            arbitrum_rpc = os.getenv('ARBITRUM_RPC_URL', os.getenv('ARBITRUM_RPC_URL'))
             if arbitrum_rpc:
                 try:
                     self.web3_connections[42161] = Web3(Web3.HTTPProvider(arbitrum_rpc))
@@ -107,7 +107,7 @@ class GasDataBackfiller:
                     logger.debug(f"Arbitrum RPC error: {arb_error}")
             
             # Optimism (chain_id = 10)
-            optimism_rpc = os.getenv('OPTIMISM_RPC_URL', os.getenv('PROD_OPTIMISM_RPC_URL'))
+            optimism_rpc = os.getenv('OPTIMISM_RPC_URL', os.getenv('OPTIMISM_RPC_URL'))
             if optimism_rpc:
                 try:
                     self.web3_connections[10] = Web3(Web3.HTTPProvider(optimism_rpc))
@@ -116,7 +116,7 @@ class GasDataBackfiller:
                     logger.debug(f"Optimism RPC error: {opt_error}")
             
             # Base (chain_id = 8453)
-            base_rpc = os.getenv('BASE_RPC_URL', os.getenv('PROD_BASE_RPC_URL'))
+            base_rpc = os.getenv('BASE_RPC_URL', os.getenv('BASE_RPC_URL'))
             if base_rpc:
                 try:
                     self.web3_connections[8453] = Web3(Web3.HTTPProvider(base_rpc))

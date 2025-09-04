@@ -6,7 +6,7 @@
 -- "relation 'vw_auctions' does not exist"
 --
 -- Usage:
---   psql $PROD_DATABASE_URL -f fix_production_vw_auctions.sql
+--   psql $DATABASE_URL -f fix_production_vw_auctions.sql
 --
 -- Date: 2025-01-04
 -- Issue: Missing vw_auctions view causing production API failures

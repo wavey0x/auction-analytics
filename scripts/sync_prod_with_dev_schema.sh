@@ -34,8 +34,8 @@ else
 fi
 
 # Validate required variables
-if [[ -z "${PROD_DATABASE_URL:-}" ]]; then
-    log_error "PROD_DATABASE_URL not set in environment"
+if [[ -z "${DATABASE_URL:-}" ]]; then
+    log_error "DATABASE_URL not set in environment"
     exit 1
 fi
 
@@ -45,7 +45,7 @@ if [[ -z "${DEV_DATABASE_URL:-}" ]]; then
 fi
 
 log_info "🔄 Starting production database schema sync..."
-log_info "Production DB: ${PROD_DATABASE_URL%%:*}://***@${PROD_DATABASE_URL#*@}"
+log_info "Production DB: ${DATABASE_URL%%:*}://***@${DATABASE_URL#*@}"
 log_info "Development DB: ${DEV_DATABASE_URL%%:*}://***@${DEV_DATABASE_URL#*@}"
 
 # Create temporary directory for schema files
@@ -217,7 +217,7 @@ fi
 
 # Step 6: Apply the migration
 log_info "🚀 Applying schema migration to production..."
-if psql "$PROD_DATABASE_URL" -f "$TEMP_DIR/production_migration.sql"; then
+if psql "$DATABASE_URL" -f "$TEMP_DIR/production_migration.sql"; then
     log_info "✅ Production database schema sync completed successfully!"
     log_info "🔍 Run this command to verify indexer can start:"
     echo "   sudo systemctl restart auction-indexer && sudo systemctl status auction-indexer"

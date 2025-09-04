@@ -33,7 +33,7 @@ networks:
     chain_id: 1
     factories:
       - address: ${ETHEREUM_FACTORY_ADDRESS}
-        start_block: ${ETHEREUM_START_BLOCK}
+        start_block: ${c:-21835027}
         type: legacy
     rpc_url: ${ETHEREUM_RPC_URL}
   local:

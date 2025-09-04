@@ -48,7 +48,7 @@ class Settings:
         
         # Mode-specific database URLs
         self.dev_database_url = os.getenv("DEV_DATABASE_URL")
-        self.prod_database_url = os.getenv("PROD_DATABASE_URL")
+        self.prod_database_url = os.getenv("DATABASE_URL")
         self.mock_database_url = os.getenv("MOCK_DATABASE_URL")
         
         # Blockchain settings (legacy - for backwards compatibility)
@@ -64,11 +64,10 @@ class Settings:
         
         # Factory contract settings (legacy - for backwards compatibility)
         self.factory_address = os.getenv("FACTORY_ADDRESS")
-        self.start_block = self._parse_start_block(os.getenv("START_BLOCK", "0"))
         
         # Mode-specific network configurations
         self.dev_networks_enabled = os.getenv("DEV_NETWORKS_ENABLED", "local")
-        self.prod_networks_enabled = os.getenv("PROD_NETWORKS_ENABLED", "ethereum,polygon,arbitrum,optimism,base")
+        self.prod_networks_enabled = os.getenv("NETWORKS_ENABLED", "ethereum,polygon,arbitrum,optimism,base")
         self.mock_networks_enabled = os.getenv("MOCK_NETWORKS_ENABLED", "ethereum,polygon,arbitrum,optimism,base,local")
         
         # Set networks based on app mode
@@ -95,24 +94,7 @@ class Settings:
         self.base_factory_address = os.getenv("BASE_FACTORY_ADDRESS")
         self.local_factory_address = os.getenv("LOCAL_FACTORY_ADDRESS")
         
-        # Network-specific start blocks
-        self.ethereum_start_block = self._parse_start_block(os.getenv("ETHEREUM_START_BLOCK", "18000000"))
-        self.polygon_start_block = self._parse_start_block(os.getenv("POLYGON_START_BLOCK", "45000000"))
-        self.arbitrum_start_block = self._parse_start_block(os.getenv("ARBITRUM_START_BLOCK", "100000000"))
-        self.optimism_start_block = self._parse_start_block(os.getenv("OPTIMISM_START_BLOCK", "100000000"))
-        self.base_start_block = self._parse_start_block(os.getenv("BASE_START_BLOCK", "1000000"))
-        self.local_start_block = self._parse_start_block(os.getenv("LOCAL_START_BLOCK", "0"))
     
-    def _parse_start_block(self, v):
-        """Handle empty strings for start block fields"""
-        if v == '' or v is None:
-            return None
-        if isinstance(v, str):
-            try:
-                return int(v)
-            except ValueError:
-                return None
-        return v
     
     def get_effective_database_url(self) -> Optional[str]:
         """Get the effective database URL based on app mode"""
@@ -189,7 +171,6 @@ SUPPORTED_NETWORKS = {
         "short_name": "Ethereum",
         "rpc_key": "ethereum_rpc_url",
         "factory_key": "ethereum_factory_address",
-        "start_block_key": "ethereum_start_block",
         "explorer": "https://etherscan.io",
         "icon": "https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg"
     },
@@ -199,7 +180,6 @@ SUPPORTED_NETWORKS = {
         "short_name": "Polygon",
         "rpc_key": "polygon_rpc_url",
         "factory_key": "polygon_factory_address",
-        "start_block_key": "polygon_start_block",
         "explorer": "https://polygonscan.com",
         "icon": "https://icons.llamao.fi/icons/chains/rsz_polygon.jpg"
     },
@@ -209,7 +189,6 @@ SUPPORTED_NETWORKS = {
         "short_name": "Arbitrum",
         "rpc_key": "arbitrum_rpc_url",
         "factory_key": "arbitrum_factory_address",
-        "start_block_key": "arbitrum_start_block",
         "explorer": "https://arbiscan.io",
         "icon": "https://icons.llamao.fi/icons/chains/rsz_arbitrum.jpg"
     },
@@ -219,7 +198,6 @@ SUPPORTED_NETWORKS = {
         "short_name": "Optimism",
         "rpc_key": "optimism_rpc_url",
         "factory_key": "optimism_factory_address",
-        "start_block_key": "optimism_start_block",
         "explorer": "https://optimistic.etherscan.io",
         "icon": "https://icons.llamao.fi/icons/chains/rsz_optimism.jpg"
     },
@@ -229,7 +207,6 @@ SUPPORTED_NETWORKS = {
         "short_name": "Base",
         "rpc_key": "base_rpc_url",
         "factory_key": "base_factory_address",
-        "start_block_key": "base_start_block",
         "explorer": "https://basescan.org",
         "icon": "https://icons.llamao.fi/icons/chains/rsz_base.jpg"
     },
@@ -239,7 +216,6 @@ SUPPORTED_NETWORKS = {
         "short_name": "Anvil",
         "rpc_key": "anvil_rpc_url",  # Uses legacy key for backwards compatibility
         "factory_key": "local_factory_address",
-        "start_block_key": "local_start_block",
         "explorer": "#",
         "icon": "https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg"
     }
@@ -265,8 +241,6 @@ def get_network_config(network_name: str) -> dict:
     # Add actual values from settings
     config["rpc_url"] = getattr(settings, network_meta["rpc_key"], None)
     config["factory_address"] = getattr(settings, network_meta["factory_key"], None)
-    start_block_value = getattr(settings, network_meta["start_block_key"], 0)
-    config["start_block"] = start_block_value if start_block_value is not None else 0
     
     return config
 

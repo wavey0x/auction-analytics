@@ -2,16 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
 
 jobs:
   api-and-ui:
     runs-on: ubuntu-latest
     env:
       APP_MODE: dev
-      DEV_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      DEV_DATABASE_URL: ${{ secrets.DATABASE_URL }}
       REDIS_URL: ${{ secrets.REDIS_URL }}
     steps:
       - name: Checkout
@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install API deps
         run: |
@@ -42,7 +42,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Build UI
         run: |
@@ -60,7 +60,7 @@ jobs:
     needs: api-and-ui
     env:
       APP_MODE: dev
-      DEV_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      DEV_DATABASE_URL: ${{ secrets.DATABASE_URL }}
       REDIS_URL: ${{ secrets.REDIS_URL }}
     steps:
       - name: Checkout
@@ -69,7 +69,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install API deps + test deps
         run: |

@@ -118,7 +118,7 @@ REDIS_CONNECTION_URI=redis://localhost:6379
 
 # Mode-specific Redis configs
 DEV_REDIS_CONNECTION_URI=redis://localhost:6379
-PROD_REDIS_CONNECTION_URI=redis://user:pass@prod-redis:6379/0
+REDIS_CONNECTION_URI=redis://user:pass@prod-redis:6379/0
 MOCK_REDIS_CONNECTION_URI=  # Mock mode doesn't need Redis
 ```
 

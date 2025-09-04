@@ -337,7 +337,6 @@ console.log(health.status);`
                 status: 'ready',
                 rpc_configured: true,
                 factory_configured: true,
-                start_block: 18500000
               },
               local: {
                 name: 'Anvil Local',
@@ -345,7 +344,6 @@ console.log(health.status);`
                 status: 'ready',
                 rpc_configured: true,
                 factory_configured: true,
-                start_block: 0
               }
             },
             count: 2,

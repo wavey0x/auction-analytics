@@ -131,7 +131,7 @@ class UnifiedPricingService:
             if app_mode == 'dev':
                 db_url = os.getenv('DEV_DATABASE_URL', 'postgresql://postgres:password@localhost:5433/auction_dev')
             elif app_mode == 'prod':
-                db_url = os.getenv('PROD_DATABASE_URL')
+                db_url = os.getenv('DATABASE_URL')
             else:
                 raise RuntimeError(f"Unsupported APP_MODE: {app_mode}")
             if not db_url:

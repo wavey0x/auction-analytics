@@ -1908,8 +1908,8 @@ def main():
         # Use mode-specific network configuration
         app_mode = os.environ.get('APP_MODE', 'dev')
         if app_mode == 'prod':
-            networks_enabled = os.environ.get('PROD_NETWORKS_ENABLED', 'ethereum,polygon,arbitrum,optimism,base')
-            source_var = 'PROD_NETWORKS_ENABLED'
+            networks_enabled = os.environ.get('NETWORKS_ENABLED', 'ethereum,polygon,arbitrum,optimism,base')
+            source_var = 'NETWORKS_ENABLED'
         elif app_mode == 'mock':
             networks_enabled = os.environ.get('MOCK_NETWORKS_ENABLED', 'ethereum,polygon,arbitrum,optimism,base,local')
             source_var = 'MOCK_NETWORKS_ENABLED'

@@ -43,7 +43,7 @@ class ETHPriceQueueScript:
             if app_mode == 'dev':
                 db_url = os.getenv('DEV_DATABASE_URL', 'postgresql://wavey@localhost:5432/auction_dev')
             elif app_mode == 'prod':
-                db_url = os.getenv('PROD_DATABASE_URL')
+                db_url = os.getenv('DATABASE_URL')
             else:
                 logger.error(f"Unsupported APP_MODE: {app_mode}")
                 sys.exit(1)

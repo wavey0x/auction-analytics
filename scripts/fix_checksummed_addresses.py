@@ -40,7 +40,7 @@ def main():
     if app_mode == 'dev':
         db_url = os.getenv('DEV_DATABASE_URL', 'postgresql://postgres:password@localhost:5433/auction_dev')
     else:
-        db_url = os.getenv('PROD_DATABASE_URL')
+        db_url = os.getenv('DATABASE_URL')
         
     if not db_url:
         print("❌ No database URL configured")

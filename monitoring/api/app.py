@@ -371,7 +371,6 @@ async def get_networks():
                     "icon": config["icon"],
                     "rpc_configured": bool(config.get("rpc_url")),
                     "factory_configured": bool(config.get("factory_address")),
-                    "start_block": config.get("start_block", 0)
                 }
         
         return {
@@ -422,7 +421,6 @@ async def get_network_details(network_name: str):
             "icon": config["icon"],
             "rpc_url": config.get("rpc_url", "not_configured"),
             "factory_address": config.get("factory_address", "not_configured"),
-            "start_block": config.get("start_block", 0),
             "status": status_details,
             "mode": settings.app_mode.value,
             "timestamp": datetime.now(timezone.utc).isoformat()

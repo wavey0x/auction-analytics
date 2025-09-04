@@ -48,9 +48,8 @@ show_help() {
     echo "  $0 --force --db-name=auction_test"
     echo ""
     echo "Environment Variables (alternative to command line):"
-    echo "  DATABASE_URL         Full database connection URL"
-    echo "  DEV_DATABASE_URL     Development database URL"
-    echo "  PROD_DATABASE_URL    Production database URL"
+    echo "  DATABASE_URL         Primary database connection URL (production/default)"
+    echo "  DEV_DATABASE_URL     Development database URL override"
     echo "  APP_MODE             Application mode (dev/prod)"
     exit 0
 }
@@ -118,7 +117,7 @@ if [[ -z "$DB_URL" ]]; then
     APP_MODE="${APP_MODE:-$MODE}"
     case "$APP_MODE" in
         "prod")
-            DB_URL="${PROD_DATABASE_URL:-}"
+            DB_URL="${DATABASE_URL:-}"
             if [[ -z "$DB_URL" ]]; then
                 DB_NAME="${DB_NAME}_prod"
             fi
@@ -210,6 +209,7 @@ fi
 # Verify setup
 log_step "Verifying database setup..."
 TABLE_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null || echo "0")
+VIEW_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM information_schema.views WHERE table_schema = 'public';" 2>/dev/null || echo "0")
 TOKEN_COUNT=$(psql "$DB_URL" -tAc "SELECT COUNT(*) FROM tokens;" 2>/dev/null || echo "0")
 
 if [[ "$TABLE_COUNT" -lt 8 ]]; then
@@ -232,13 +232,29 @@ if [[ ${#MISSING_TABLES[@]} -gt 0 ]]; then
     exit 1
 fi
 
+# Check for required views
+REQUIRED_VIEWS=("vw_auctions")
+MISSING_VIEWS=()
+
+for view in "${REQUIRED_VIEWS[@]}"; do
+    if ! psql "$DB_URL" -tAc "SELECT 1 FROM information_schema.views WHERE table_name = '$view';" >/dev/null 2>&1; then
+        MISSING_VIEWS+=("$view")
+    fi
+done
+
+if [[ ${#MISSING_VIEWS[@]} -gt 0 ]]; then
+    log_error "Missing required views: ${MISSING_VIEWS[*]}"
+    exit 1
+fi
+
 # Success summary
 echo ""
 log_success "🎉 DATABASE SETUP COMPLETED SUCCESSFULLY!"
 echo ""
 echo "📊 Summary:"
 echo "  • Database: $ACTUAL_DB_NAME"
-echo "  • Tables created: $TABLE_COUNT"  
+echo "  • Tables created: $TABLE_COUNT"
+echo "  • Views created: $VIEW_COUNT (includes vw_auctions)"
 echo "  • Token seeds: $TOKEN_COUNT"
 echo "  • Indexes: ✅ Created"
 echo "  • Triggers: ✅ Active"

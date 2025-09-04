@@ -14,12 +14,12 @@ APP_DIR=${APP_DIR:-"/opt/auction-app"}
 BRANCH=${BRANCH:-"main"}
 
 # Required envs
-PROD_DATABASE_URL=${PROD_DATABASE_URL:-}
+DATABASE_URL=${DATABASE_URL:-}
 REDIS_URL=${REDIS_URL:-}
 API_PORT=${API_PORT:-8000}
 
-if [[ -z "$PROD_DATABASE_URL" ]]; then
-  echo "PROD_DATABASE_URL must be provided (e.g., export PROD_DATABASE_URL=postgres://...)" >&2
+if [[ -z "$DATABASE_URL" ]]; then
+  echo "DATABASE_URL must be provided (e.g., export DATABASE_URL=postgres://...)" >&2
   exit 1
 fi
 
@@ -51,7 +51,7 @@ cat > .env <<EOF
 APP_MODE=prod
 API_HOST=0.0.0.0
 API_PORT=$API_PORT
-PROD_DATABASE_URL=$PROD_DATABASE_URL
+DATABASE_URL=$DATABASE_URL
 REDIS_URL=${REDIS_URL}
 # Optional Telegram
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
@@ -79,7 +79,7 @@ npm run build
 popd
 
 echo "==> Running database migrations"
-export DATABASE_URL="$PROD_DATABASE_URL"
+export DATABASE_URL="$DATABASE_URL"
 bash scripts/migrate.sh
 
 echo "==> Installing systemd services"

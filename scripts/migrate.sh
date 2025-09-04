@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Simple migration runner for Postgres using psql
-# - Uses $DATABASE_URL (preferred) or $DEV_DATABASE_URL/$PROD_DATABASE_URL fallbacks
+# - Uses $DATABASE_URL (preferred) or $DEV_DATABASE_URL fallback
 # - Applies data/postgres/schema.sql if database is empty
 # - Applies all SQL files in data/postgres/migrations in semantic order
 
@@ -12,11 +12,11 @@ MIGRATIONS_DIR="$ROOT_DIR/data/postgres/migrations"
 
 DB_URL="${DATABASE_URL:-}"
 if [[ -z "$DB_URL" ]] ; then
-  DB_URL="${DEV_DATABASE_URL:-${PROD_DATABASE_URL:-}}"
+  DB_URL="${DEV_DATABASE_URL:-${DATABASE_URL:-}}"
 fi
 
 if [[ -z "$DB_URL" ]] ; then
-  echo "DATABASE_URL not set (or DEV_DATABASE_URL/PROD_DATABASE_URL)." >&2
+  echo "DATABASE_URL not set (or DEV_DATABASE_URL fallback)." >&2
   exit 1
 fi
 

@@ -97,10 +97,10 @@ DEV_FACTORY_ADDRESS=0x335796f7A0F72368D1588839e38f163d90C92C80
 MOCK_DATABASE_URL=           # Empty - no database needed
 MOCK_NETWORKS_ENABLED=ethereum,polygon,arbitrum,optimism,base,local
 
-# Production mode variables (PROD_*)
-PROD_DATABASE_URL=postgresql://username:password@prod-db-host:5432/auction_prod
-PROD_NETWORKS_ENABLED=ethereum,polygon,arbitrum,optimism,base
-PROD_ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR_KEY
+# Production/default mode variables
+DATABASE_URL=postgresql://username:password@prod-db-host:5432/auction_prod
+NETWORKS_ENABLED=ethereum,polygon,arbitrum,optimism,base
+ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR_KEY
 ```
 
 ### Development Mode
@@ -115,11 +115,12 @@ The project now uses a **unified Python virtual environment** at the project roo
 
 # Or manually
 python3 -m venv venv
-source venv/bin/activate  
+source venv/bin/activate
 pip install -r requirements-working.txt
 ```
 
 **Benefits:**
+
 - ✅ **No dependency conflicts** - single resolved dependency tree
 - ✅ **Consistent environment** - all services use same Python packages
 - ✅ **Faster startup** - no individual venv creation per service
@@ -131,6 +132,7 @@ pip install -r requirements-working.txt
 The development environment has been simplified with a modern orchestration script:
 
 **Core Services:**
+
 - PostgreSQL database (via Docker if needed)
 - Custom Web3.py indexer for blockchain event processing (uses unified venv)
 - FastAPI backend with database integration (uses unified venv)
@@ -138,6 +140,7 @@ The development environment has been simplified with a modern orchestration scri
 - All pricing services (ypm, odos, cowswap) running in parallel (uses unified venv)
 
 **Key Features:**
+
 - **Unified Command**: Single `./dev.sh` command starts all services
 - **Session Management**: Uses tmux for better service visibility and control
 - **Health Checks**: Verifies each service is ready before proceeding
@@ -145,6 +148,7 @@ The development environment has been simplified with a modern orchestration scri
 - **Clean Shutdown**: Ctrl+C stops all services gracefully
 
 **Usage Examples:**
+
 ```bash
 ./dev.sh                    # Start all services with tmux
 ./dev.sh --no-ui            # Start without React UI
@@ -187,12 +191,14 @@ starting_price = float(starting_price_wei) / 1e18      # 9.0 instead of 9e18
 
 **Tmux Integration:**
 The development script uses tmux sessions for better service management:
+
 - Each service runs in its own pane for easy monitoring
 - Use `tmux attach -t auction_dev` to connect to the active session
 - Individual panes show real-time logs for each service
 - Fallback to background processes if tmux is not available
 
 **Service Control:**
+
 - Individual service logs available in `logs/` directory
 - Health checks ensure services are ready before proceeding
 - Clean shutdown stops all services when interrupted (Ctrl+C)
@@ -431,11 +437,11 @@ colors: {
 
 // ui/src/components/AddressLink.tsx
 // External blockchain explorer links
-<AddressLink 
-  address="0x123...abc" 
-  chainId={1} 
-  type="auction" 
-  className="text-primary-400" 
+<AddressLink
+  address="0x123...abc"
+  chainId={1}
+  type="auction"
+  className="text-primary-400"
 />
 
 // ui/src/components/TakerLink.tsx
@@ -468,10 +474,10 @@ colors: {
 ```typescript
 // ui/src/components/TokenPairDisplay.tsx
 // Standard token pair visualization (from → to)
-<TokenPairDisplay 
-  fromToken="USDC" 
-  toToken="YFI" 
-  size="sm" 
+<TokenPairDisplay
+  fromToken="USDC"
+  toToken="YFI"
+  size="sm"
 />
 
 // ui/src/components/ChainIcon.tsx
@@ -555,6 +561,7 @@ colors: {
 ### Component Usage Standards
 
 **Required Patterns:**
+
 - ✅ **ALWAYS** use `InternalLink` for navigation within the app
 - ✅ **ALWAYS** use `AddressLink` for external blockchain explorer links
 - ✅ **ALWAYS** use `Pagination` component for paginated data (never custom pagination)
@@ -565,6 +572,7 @@ colors: {
 - ✅ **ALWAYS** use `LoadingSpinner` for loading states
 
 **Interface Requirements:**
+
 - All components have TypeScript interfaces defining props
 - Required props are explicitly marked as required
 - Optional props have sensible defaults
@@ -572,6 +580,7 @@ colors: {
 - Size variants follow pattern: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
 **Styling Consistency:**
+
 - Use TailwindCSS utility classes
 - Follow dark theme color palette (gray-800/900/950 backgrounds)
 - Use primary-400/500/600/700 for brand colors
@@ -662,15 +671,17 @@ event AuctionSale(address indexed auction, uint256 indexed roundId, uint256 sale
 ```
 
 **Quick Start Guide:**
+
 1. **Setup virtual environment**: Run `./setup_venv.sh` (one-time setup)
-2. **Configure environment**: Ensure `.env` file exists (copy from `.env.example`)  
+2. **Configure environment**: Ensure `.env` file exists (copy from `.env.example`)
 3. **Start database**: `docker-compose up -d postgres` (if using Docker)
 4. **Start all services**: `./dev.sh` (automatically uses unified venv)
-5. **Access applications**: 
+5. **Access applications**:
    - UI: http://localhost:3000
    - API: http://localhost:8000
 
 **Session Management:**
+
 - Use `tmux attach -t auction_dev` to connect to running session
 - Each service has its own pane for monitoring
 - Ctrl+C stops all services cleanly
@@ -848,6 +859,14 @@ npm run lint
 - ✅ **Configuration Updates**: Dynamic factory addresses from deployment rather than hardcoded
 - ✅ **Clean ABI Extraction**: Automated extraction of clean ABIs from Brownie build artifacts
 - ✅ **Error Handling**: Comprehensive error handling with proper database rollback
+
+### Configuration Simplification (September 2025)
+
+- ✅ **Start Block Configuration Removal**: Eliminated duplicate start_block configuration from API config.py
+- ✅ **Single Source of Truth**: Start blocks now only configured in indexer/config.yaml where they're actually needed
+- ✅ **Environment Variables Cleanup**: Removed all START_BLOCK environment variables (ETHEREUM_START_BLOCK, etc.)
+- ✅ **API Endpoints Updated**: Removed start_block fields from /chains and /network/{id} endpoints
+- ✅ **Documentation Updates**: Updated all docs to reflect that start blocks are indexer-only configuration
 
 ### Code Quality Improvements
 

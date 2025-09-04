@@ -53,8 +53,8 @@ show_help() {
     echo "  $0 --dry-run"
     echo ""
     echo "Environment Variables:"
-    echo "  PROD_DATABASE_URL     Production database URL"
-    echo "  DEV_DATABASE_URL      Development database URL"
+    echo "  DATABASE_URL          Primary database URL (production/default)"
+    echo "  DEV_DATABASE_URL      Development database URL override"
     echo "  All other environment variables from .env file"
     exit 0
 }
@@ -153,18 +153,23 @@ export APP_MODE="$MODE"
 # Determine database URL
 if [[ -z "$DATABASE_URL" ]]; then
     case "$MODE" in
-        "prod")
-            DATABASE_URL="${PROD_DATABASE_URL:-}"
-            ;;
         "dev")
             DATABASE_URL="${DEV_DATABASE_URL:-}"
+            ;;
+        "prod"|*)
+            # For production mode, DATABASE_URL should be set directly
+            # No fallback needed since DATABASE_URL is the primary variable
             ;;
     esac
 fi
 
 if [[ -z "$DATABASE_URL" && "$SKIP_DB" = false ]]; then
     log_error "Database URL not specified for $MODE mode"
-    log_error "Set ${MODE^^}_DATABASE_URL in .env or use --database-url"
+    if [[ "$MODE" = "dev" ]]; then
+        log_error "Set DEV_DATABASE_URL in .env or use --database-url"
+    else
+        log_error "Set DATABASE_URL in .env or use --database-url"
+    fi
     exit 1
 fi
 

@@ -8,17 +8,17 @@ if [[ -f .env ]]; then
     source .env
 fi
 
-# Check if PROD_DATABASE_URL is set
-if [[ -z "${PROD_DATABASE_URL:-}" ]]; then
-    echo "❌ PROD_DATABASE_URL not set in environment"
+# Check if DATABASE_URL is set
+if [[ -z "${DATABASE_URL:-}" ]]; then
+    echo "❌ DATABASE_URL not set in environment"
     exit 1
 fi
 
 echo "🚀 Applying schema fix to production database..."
-echo "Database: ${PROD_DATABASE_URL%%:*}://***@${PROD_DATABASE_URL#*@}"
+echo "Database: ${DATABASE_URL%%:*}://***@${DATABASE_URL#*@}"
 
 # Create and run the schema fix
-psql "$PROD_DATABASE_URL" << 'EOF'
+psql "$DATABASE_URL" << 'EOF'
 BEGIN;
 
 -- Add missing timestamp column to tokens table

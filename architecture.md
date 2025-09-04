@@ -81,7 +81,6 @@ async def process_factory_events(chain_id, config):
 DATABASE_URL="postgresql://postgres:password@localhost:5432/auction"
 LOCAL_FACTORY_ADDRESS="0x63fea6E447F120B8Faf85B53cdaD8348e645D80E"
 LOCAL_LEGACY_FACTORY_ADDRESS="0x9BcC604D4381C5b0Ad12Ff3Bf32bEdE063416BC7"
-LOCAL_START_BLOCK="194"
 ANVIL_RPC_URL="http://localhost:8545"
 ```
 
@@ -256,7 +255,6 @@ The database uses a clean structure optimized for multi-chain auction monitoring
 # Environment variables automatically set:
 DATABASE_URL="postgresql://postgres:password@localhost:5432/auction"
 FACTORY_ADDRESS="0x335796f7A0F72368D1588839e38f163d90C92C80"
-START_BLOCK="0"
 ```
 
 #### Production Setup
