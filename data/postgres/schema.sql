@@ -400,6 +400,147 @@ COMMENT ON TABLE public.tokens IS 'Token metadata cache for display purposes acr
 
 
 --
+-- Name: outbox_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.outbox_events (
+    id bigint NOT NULL,
+    type character varying(50) NOT NULL,
+    chain_id integer NOT NULL,
+    block_number bigint NOT NULL,
+    tx_hash character varying(100) NOT NULL,
+    log_index integer NOT NULL,
+    auction_address character varying(100),
+    round_id integer,
+    from_token character varying(100),
+    want_token character varying(100),
+    "timestamp" bigint NOT NULL,
+    payload_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    uniq character varying(200) NOT NULL,
+    ver integer DEFAULT 1 NOT NULL,
+    published_at timestamp with time zone,
+    retries integer DEFAULT 0,
+    last_error text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE outbox_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.outbox_events IS 'Outbox pattern for reliable event publishing to Redis Streams';
+
+
+--
+-- Name: outbox_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.outbox_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: outbox_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.outbox_events_id_seq OWNED BY public.outbox_events.id;
+
+
+--
+-- Name: price_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.price_requests (
+    id integer NOT NULL,
+    chain_id integer NOT NULL,
+    block_number bigint NOT NULL,
+    token_address character varying(100) NOT NULL,
+    request_type character varying(50) DEFAULT 'take'::character varying NOT NULL,
+    status character varying(50) DEFAULT 'pending'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    txn_timestamp bigint,
+    price_source character varying(50) DEFAULT 'all'::character varying,
+    retries integer DEFAULT 0,
+    last_error text,
+    auction_address character varying(100),
+    round_id integer
+);
+
+
+--
+-- Name: TABLE price_requests; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.price_requests IS 'Price requests for token pricing services';
+
+
+--
+-- Name: price_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.price_requests_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: price_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.price_requests_id_seq OWNED BY public.price_requests.id;
+
+
+--
+-- Name: token_prices_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.token_prices_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: token_prices_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.token_prices_id_seq OWNED BY public.token_prices.id;
+
+
+--
+-- Name: tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.tokens_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.tokens_id_seq OWNED BY public.tokens.id;
+
+
+--
 -- Name: auctions auctions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -488,6 +629,38 @@ ALTER TABLE ONLY public.tokens
 
 
 --
+-- Name: outbox_events outbox_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outbox_events
+    ADD CONSTRAINT outbox_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: outbox_events outbox_events_uniq_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outbox_events
+    ADD CONSTRAINT outbox_events_uniq_key UNIQUE (uniq);
+
+
+--
+-- Name: price_requests price_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.price_requests
+    ADD CONSTRAINT price_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: price_requests price_requests_chain_id_block_number_token_address_reque; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.price_requests
+    ADD CONSTRAINT price_requests_chain_id_block_number_token_address_reque UNIQUE (chain_id, block_number, token_address, request_type);
+
+
+--
 -- Name: idx_auctions_address_chain; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -562,6 +735,83 @@ CREATE INDEX idx_takes_tx_hash ON public.takes USING btree (transaction_hash);
 --
 
 CREATE UNIQUE INDEX idx_takes_unique_chain_tx_log_ts ON public.takes USING btree (chain_id, transaction_hash, log_index, "timestamp");
+
+
+--
+-- Name: idx_outbox_chain_block; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_outbox_chain_block ON public.outbox_events USING btree (chain_id, block_number);
+
+
+--
+-- Name: idx_outbox_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_outbox_created ON public.outbox_events USING btree (created_at);
+
+
+--
+-- Name: idx_outbox_retries; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_outbox_retries ON public.outbox_events USING btree (retries) WHERE ((published_at IS NULL) AND (retries > 3));
+
+
+--
+-- Name: idx_outbox_unpublished; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_outbox_unpublished ON public.outbox_events USING btree (id) WHERE (published_at IS NULL);
+
+
+--
+-- Name: idx_price_requests_chain_block; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_price_requests_chain_block ON public.price_requests USING btree (chain_id, block_number);
+
+
+--
+-- Name: idx_price_requests_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_price_requests_status ON public.price_requests USING btree (status) WHERE ((status)::text = 'pending'::text);
+
+
+--
+-- Name: indexer_state id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.indexer_state ALTER COLUMN id SET DEFAULT nextval('public.indexer_state_id_seq'::regclass);
+
+
+--
+-- Name: outbox_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outbox_events ALTER COLUMN id SET DEFAULT nextval('public.outbox_events_id_seq'::regclass);
+
+
+--
+-- Name: price_requests id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.price_requests ALTER COLUMN id SET DEFAULT nextval('public.price_requests_id_seq'::regclass);
+
+
+--
+-- Name: token_prices id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_prices ALTER COLUMN id SET DEFAULT nextval('public.token_prices_id_seq'::regclass);
+
+
+--
+-- Name: tokens id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tokens ALTER COLUMN id SET DEFAULT nextval('public.tokens_id_seq'::regclass);
 
 
 --
