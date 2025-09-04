@@ -19,21 +19,24 @@ except Exception:  # pragma: no cover
     aioredis = None
 from datetime import datetime, timezone
 
-from config import get_settings, get_cors_origins, is_mock_mode, requires_database, get_all_network_configs, get_enabled_networks
-from models.auction import SystemStats
-from models.taker import TakerSummary, TakerDetail, TakerListResponse, TakerTakesResponse
-from database import get_db, check_database_connection, get_data_provider, DataProvider
+from monitoring.api.config import get_settings, get_cors_origins, is_mock_mode, requires_database, get_all_network_configs, get_enabled_networks
+from monitoring.api.models.auction import SystemStats
+from monitoring.api.models.taker import TakerSummary, TakerDetail, TakerListResponse, TakerTakesResponse
+from monitoring.api.database import get_db, check_database_connection, get_data_provider, DataProvider
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from routes.status import router as status_router
+from monitoring.api.routes.status import router as status_router
 
-# Parse command line arguments
-parser = argparse.ArgumentParser(description="Auction API Server")
-parser.add_argument('--mock', action='store_true', help='Use mock data provider instead of database')
-args = parser.parse_args()
-
-# Store provider mode globally  
-PROVIDER_MODE = "mock" if args.mock else None
+# Parse command line arguments (only when run directly, not when imported by uvicorn)
+PROVIDER_MODE = None
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Auction API Server")
+    parser.add_argument('--mock', action='store_true', help='Use mock data provider instead of database')
+    args = parser.parse_args()
+    PROVIDER_MODE = "mock" if args.mock else None
+else:
+    # When imported by uvicorn, check for MOCK_MODE environment variable
+    PROVIDER_MODE = "mock" if os.getenv("MOCK_MODE", "").lower() in ["true", "1", "yes"] else None
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -47,7 +50,7 @@ logger.info("=" * 60)
 logger.info(f"🚀 Starting Auction API in {settings.app_mode.upper()} mode")
 logger.info("=" * 60)
 logger.info(f"App Mode: {settings.app_mode}")
-logger.info(f"Data Mode: {'mock (--mock flag)' if args.mock else 'database (default)'}")
+logger.info(f"Data Mode: {'mock' if PROVIDER_MODE == 'mock' else 'database (default)'}")
 logger.info(f"API Host: {settings.api_host}:{settings.api_port}")
 logger.info(f"CORS Origins: {settings.cors_origins}")
 
@@ -103,7 +106,7 @@ async def startup_event():
         
         if PROVIDER_MODE == "real":
             # Additional validation for real mode
-            from database import MockDataProvider
+            from monitoring.api.database import MockDataProvider
             if isinstance(provider, MockDataProvider):
                 error_msg = "CRITICAL: Real mode requested but MockDataProvider returned. Database connection failed!"
                 logger.error(error_msg)
@@ -463,7 +466,7 @@ async def get_takers(
     - **chain_id**: Optional filter by chain ID
     """
     try:
-        from database import DatabaseQueries
+        from monitoring.api.database import DatabaseQueries
         
         result = await DatabaseQueries.get_takers_summary(db, sort_by, limit, page, chain_id)
         return result
@@ -483,7 +486,7 @@ async def get_taker_details(
     - **taker_address**: Ethereum address of the taker wallet
     """
     try:
-        from database import DatabaseQueries
+        from monitoring.api.database import DatabaseQueries
         
         result = await DatabaseQueries.get_taker_details(db, taker_address)
         return result
@@ -509,7 +512,7 @@ async def get_taker_takes(
     - **page**: Page number for pagination
     """
     try:
-        from database import DatabaseQueries
+        from monitoring.api.database import DatabaseQueries
         
         result = await DatabaseQueries.get_taker_takes(db, taker_address, limit, page)
         return result
@@ -534,7 +537,7 @@ async def get_taker_token_pairs(
     - **limit**: Number of token pairs per page
     """
     try:
-        from database import DatabaseQueries
+        from monitoring.api.database import DatabaseQueries
         
         result = await DatabaseQueries.get_taker_token_pairs(db, taker_address, page, limit)
         return result
@@ -570,7 +573,7 @@ async def get_take_details(
     """
     try:
         # Import here to avoid circular import issues
-        from database import DatabaseQueries
+        from monitoring.api.database import DatabaseQueries
         
         # Get take details with price quotes
         raw_data = await DatabaseQueries.get_take_details(db, auction_address, round_id, take_seq, chain_id)

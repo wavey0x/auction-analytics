@@ -872,7 +872,7 @@ try:
     )
 except ImportError:
     # When running from within the api directory
-    from models.auction import (
+    from monitoring.api.models.auction import (
         AuctionResponse,
         AuctionRoundInfo,
         AuctionActivity,
@@ -885,7 +885,7 @@ except ImportError:
 
 # Import config functions
 try:
-    from config import get_settings, is_mock_mode, is_development_mode
+    from monitoring.api.config import get_settings, is_mock_mode, is_development_mode
 except ImportError:
     # Handle imports for when running standalone
     pass
@@ -1487,7 +1487,7 @@ def get_data_provider(force_mode: Optional[str] = None) -> DataProvider:
     
     # Default: use database
     try:
-        from config import get_settings
+        from monitoring.api.config import get_settings
         settings = get_settings()
         database_url = settings.get_effective_database_url()
         

@@ -10,7 +10,12 @@ from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv("../../.env")
+# Try different paths to work from both project root and api directory
+import pathlib
+config_dir = pathlib.Path(__file__).parent
+project_root = config_dir.parent.parent
+env_file = project_root / ".env"
+load_dotenv(str(env_file))
 
 
 class AppMode(str, Enum):

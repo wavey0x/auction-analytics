@@ -8,7 +8,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 from blockchain_data import normalize_address
 
-from models.auction import (
+from monitoring.api.models.auction import (
     AuctionResponse,
     AuctionListResponse,
     AuctionListItem,
@@ -118,7 +118,7 @@ async def get_auction(auction: str):
     # Normalize the auction address to checksummed format
     auction = normalize_address(auction)
     
-    from models.auction import AuctionParameters, AuctionActivity
+    from monitoring.api.models.auction import AuctionParameters, AuctionActivity
     
     mock_tokens = [
         TokenInfo(address="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", symbol="USDC", name="USD Coin", decimals=6),
@@ -264,7 +264,7 @@ async def get_price_history(
     # Normalize the auction address to checksummed format
     auction = normalize_address(auction)
     
-    from models.auction import PriceHistoryPoint
+    from monitoring.api.models.auction import PriceHistoryPoint
     
     points = []
     current_time = datetime.now()
