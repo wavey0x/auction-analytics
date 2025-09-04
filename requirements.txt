@@ -4,9 +4,11 @@
 # This file consolidates all Python dependencies for the entire project
 # Install with: pip install -r requirements.txt
 #
-# IMPORTANT: eth-brownie 1.21.0 requires python-dotenv==0.16.0 exactly
-# This creates conflicts with pydantic-settings which needs >=0.21.0
-# The system works without pydantic-settings by using basic dotenv loading
+# IMPORTANT: eth-brownie 1.21.0 has strict version constraints:
+# - python-dotenv==0.16.0 (conflicts with pydantic-settings)
+# - pytest==6.2.5 (conflicts with newer pytest-asyncio)
+# Solution: Use compatible versions without pydantic-settings
+# Install with: pip install -r requirements.txt --no-deps
 
 # ============================================================================
 # BLOCKCHAIN & WEB3 DEPENDENCIES
@@ -49,6 +51,6 @@ aioredis>=2.0.0             # Async Redis client
 # ============================================================================
 # DEVELOPMENT & TESTING DEPENDENCIES
 # ============================================================================
-pytest>=6.2.0              # Testing framework (compatible with brownie)
-pytest-asyncio>=0.21.0     # Async testing support
+pytest==6.2.5              # Testing framework (brownie constraint)
+pytest-asyncio==0.15.1     # Async testing support (compatible with pytest 6.2.5)
 httpx>=0.25.0               # HTTP client for testing APIs
