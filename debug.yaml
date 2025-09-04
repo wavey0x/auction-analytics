@@ -1,0 +1,167 @@
+# ============================================================================
+# RINDEXER LOCAL CONFIGURATION - DEVELOPMENT MODE
+# ============================================================================
+# Used by: ./run.sh dev
+# Purpose: Index auction events from local Anvil blockchain (chain_id: 31337)
+# Mode: no-code (automatic table generation + webhook streams for business logic)
+
+# Debug logging configuration
+logging:
+  level: debug
+  format: json
+
+name: auction-local
+description: "Indexes all events from Dutch auction contracts on local Anvil network"
+project_type: no-code
+
+# ============================================================================
+# DATA ARCHITECTURE - TWO-LAYER APPROACH
+# ============================================================================
+# Layer 1: Rindexer Auto-Generated Tables (Raw Events)
+#   - deployed_new_auction  ← DeployedNewAuction events
+#   - auction_enabled       ← AuctionEnabled events
+#   - auction_disabled      ← AuctionDisabled events
+#   - auction_kicked        ← AuctionKicked events
+#   - auction_sale          ← AuctionSale events (individual takes)
+#   - updated_starting_price ← UpdatedStartingPrice events
+#
+# Layer 2: Custom Business Logic Tables (via webhook → API → PostgreSQL)
+#   - auctions              ← Main auction contracts table
+#   - auction_rounds        ← Processed rounds with incremental IDs
+#   - auction_sales         ← Processed sales with calculations
+#   - tokens                ← Token metadata cache
+#   - price_history         ← Time-series price data
+#
+# Why this approach?
+# - Rindexer handles reliable blockchain indexing (hard part)
+# - API handles business logic and data transformations (easy part)
+# - Raw events preserved + processed data optimized for UI
+
+# Local network only
+networks:
+  - name: local
+    chain_id: 31337
+    rpc: http://localhost:8545
+    compute_units_per_second: 330
+    disable_logs_bloom_checks: true
+
+# Storage configuration
+storage:
+  postgres:
+    enabled: true
+    connection_string: postgresql://postgres:password@localhost:5433/auction
+    # Rindexer will automatically create tables based on events
+
+  csv:
+    enabled: false
+
+# Global configuration
+global:
+  start_block: 47
+  # end_block: # Empty for live indexing
+
+# ============================================================================
+# CONTRACT DEFINITIONS - LOCAL DEVELOPMENT
+# ============================================================================
+# NOTE: These contracts are deployed by ./run.sh dev automatically
+# Factory address is set via environment variables from deployment script
+
+contracts:
+  # AuctionFactory contract - deploys new Auction instances (v0.1.0)
+  - name: AuctionFactory
+    abi: "./abis/AuctionFactory.json"
+    details:
+      - network: local
+        address: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 # Set by deployment script
+        start_block: 47
+        include_events:
+          - DeployedNewAuction # → deployed_new_auction table
+
+  # LegacyAuctionFactory contract - deploys legacy Auction instances (v0.0.1)
+  - name: LegacyAuctionFactory
+    abi: "./abis/LegacyAuctionFactory.json"
+    details:
+      - network: local
+        address: 0x5FbDB2315678afecb367f032d93F642f64180aa3 # Optional legacy factory
+        start_block: 47
+        include_events:
+          - DeployedNewAuction # → deployed_new_auction table
+
+  # ============================================================================
+  # DYNAMIC AUCTION CONTRACT DISCOVERY
+  # ============================================================================
+  # This replaces the need for hardcoded Auction1, Auction2, Auction3 contracts!
+  # Rindexer automatically discovers and indexes ALL auctions deployed by the factory
+
+  # Modern Auction contracts (v0.1.0) - deployed by AuctionFactory
+  - name: Auction
+    abi: "./abis/Auction.json"
+    details:
+      - network: local
+        factory:
+          name: AuctionFactory # References factory above
+          address: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 # Same factory address
+          abi: "./abis/AuctionFactory.json" # Factory ABI
+          event_name: DeployedNewAuction # Event that creates new auctions
+          input_name: "auction" # Parameter containing new auction address
+        start_block: 47
+        include_events:
+          - AuctionEnabled # → auction_enabled table
+          - AuctionDisabled # → auction_disabled table
+          - AuctionKicked # → auction_kicked table (round starts)
+          - UpdatedStartingPrice # → updated_starting_price table
+          - UpdatedStepDecayRate # → updated_step_decay_rate table
+
+  # Legacy Auction contracts (v0.0.1) - deployed by LegacyAuctionFactory
+  - name: LegacyAuction
+    abi: "./abis/LegacyAuction.json"
+    details:
+      - network: local
+        factory:
+          name: LegacyAuctionFactory # References legacy factory
+          address: 0x5FbDB2315678afecb367f032d93F642f64180aa3 # Legacy factory address
+          abi: "./abis/LegacyAuctionFactory.json" # Legacy factory ABI
+          event_name: DeployedNewAuction # Event that creates new auctions
+          input_name: "auction" # Parameter containing new auction address
+        start_block: 47
+        include_events:
+          - AuctionEnabled # → auction_enabled table
+          - AuctionDisabled # → auction_disabled table
+          - AuctionKicked # → auction_kicked table (round starts)
+          - UpdatedStartingPrice # → updated_starting_price table
+          # Note: Legacy contracts don't have UpdatedStepDecayRate event
+
+# Expected database tables (created automatically by Rindexer):
+# - deployed_new_auction (factory events)
+# - auction_enabled (token enabled for auction)
+# - auction_disabled (token disabled)
+# - auction_kicked (round kicked)
+# - updated_starting_price (price updates)
+# - updated_step_decay_rate (decay rate updates)
+
+# All tables will include chain_id = 31337 for local Anvil network
+
+# ============================================================================
+# WEBHOOK STREAMS - CUSTOM BUSINESS LOGIC
+# ============================================================================
+# Purpose: Send events to API server for custom processing
+# Flow: Rindexer → Webhook → FastAPI → Custom database tables
+#
+# This is where auction_rounds, auction_sales, and other business logic
+# tables get populated with calculated/derived data
+
+streams:
+  - name: business_logic_processor
+    type: webhook
+    url: "http://localhost:8000/webhook/process-event"
+    events:
+      - DeployedNewAuction # → Creates auctions entry
+      - AuctionKicked # → Creates auction_rounds entry with incremental ID
+      - AuctionEnabled # → Updates auction state
+      - AuctionDisabled # → Updates auction state
+      - UpdatedStartingPrice # → Updates auctions
+      - UpdatedStepDecayRate # → Updates auctions (new contracts only)
+    filters:
+      chain_id: 31337 # Only process local Anvil events
+    timeout: 30
+    retries: 3

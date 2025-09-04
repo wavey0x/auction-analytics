@@ -1,0 +1,283 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-800;
+  }
+  
+  body {
+    @apply font-mono;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-gray-100;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-950;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-gray-800 text-gray-200 border border-gray-700 hover:bg-gray-700 focus:ring-gray-500;
+  }
+  
+  .btn-sm {
+    @apply px-3 py-1.5 text-sm;
+  }
+  
+  .btn-md {
+    @apply px-4 py-2 text-sm;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  
+  /* Internal Link Styles */
+  .internal-link {
+    @apply inline-flex items-center gap-1 px-2 py-1 
+           bg-gray-800/30 border border-gray-700/50 
+           rounded-md text-sm 
+           hover:bg-gray-800/50 hover:border-gray-600
+           transition-all duration-200
+           active:scale-95;
+  }
+  
+  .internal-link-icon {
+    @apply text-gray-500 group-hover:text-primary-400 
+           transition-colors duration-200;
+  }
+
+  /* Custom InternalLink Hover Effects */
+  .internal-link-group:hover .internal-link-hover-actions {
+    opacity: 1;
+  }
+  
+  .card {
+    @apply bg-gray-900/50 backdrop-blur-sm border border-gray-800 rounded-xl p-6 shadow-xl;
+  }
+  
+  .input {
+    @apply block w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none;
+  }
+  
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  
+  .badge-success {
+    @apply badge bg-success-500/20 text-success-400 ring-1 ring-success-500/30;
+  }
+  
+  .badge-warning {
+    @apply badge bg-warning-500/20 text-warning-400 ring-1 ring-warning-500/30;
+  }
+  
+  .badge-danger {
+    @apply badge bg-danger-500/20 text-danger-400 ring-1 ring-danger-500/30;
+  }
+  
+  .badge-neutral {
+    @apply badge bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30;
+  }
+  
+  .table {
+    @apply w-full border-collapse;
+  }
+  
+  .table th {
+    @apply border-b border-gray-700 px-3 py-1.5 text-left text-xs font-medium text-gray-400 uppercase tracking-wider;
+  }
+  
+  .table td {
+    @apply border-b border-gray-800 px-3 py-1.5 text-sm text-gray-300;
+  }
+  
+  .table tbody tr:hover {
+    @apply bg-gray-800/50;
+  }
+
+  /* 8-bit style logo and badge */
+  .logo-8bit {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    /* Subtle pixel-outline effect */
+    text-shadow: 0 1px 0 rgba(0,0,0,0.8), 1px 0 0 rgba(0,0,0,0.8), -1px 0 0 rgba(0,0,0,0.8), 0 -1px 0 rgba(0,0,0,0.8);
+  }
+
+  /* Subtle glow using current text color */
+  .glow-text {
+    /* Much subtler glow */
+    text-shadow: 0 0 2px rgba(59,130,246,0.16);
+  }
+
+  /* Matrix/tech aesthetic enhancements */
+  .matrix-text {
+    background: linear-gradient(90deg, #00ff95 0%, #00e884 40%, #00d072 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow:
+      0 0 6px rgba(0, 255, 149, 0.35),
+      0 0 18px rgba(0, 255, 149, 0.15);
+  }
+
+  .logo-wrap-matrix {
+    position: relative;
+  }
+  .logo-wrap-matrix::after {
+    content: "";
+    position: absolute;
+    inset: -4px -6px -6px -6px;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 255, 149, 0.06) 0px,
+      rgba(0, 255, 149, 0.06) 1px,
+      transparent 2px,
+      transparent 4px
+    );
+    mix-blend-mode: overlay;
+    opacity: .35;
+    border-radius: 0.25rem;
+  }
+
+  .pixel-badge {
+    @apply flex items-center justify-center border-2;
+    border-color: theme('colors.primary.500 / 0.6');
+    background: none;
+    image-rendering: pixelated;
+    box-shadow: 0 0 0 1px rgba(59,130,246,0.25), 0 2px 0 rgba(0,0,0,0.6);
+  }
+
+  .pixel-badge--matrix {
+    border-color: rgba(0, 255, 149, 0.5);
+    background: repeating-linear-gradient(
+      135deg,
+      rgba(0,255,149,0.10) 0px,
+      rgba(0,255,149,0.10) 3px,
+      rgba(0,255,149,0.18) 3px,
+      rgba(0,255,149,0.18) 6px
+    );
+    box-shadow: 0 0 0 1px rgba(0,255,149,0.25), 0 2px 0 rgba(0,0,0,0.65), 0 0 22px rgba(0,255,149,0.12);
+    animation: scan 12s linear infinite;
+  }
+
+  @keyframes scan {
+    0% { background-position: 0 0; }
+    100% { background-position: 160px 160px; }
+  }
+
+  .matrix-underscore {
+    color: #00ff95;
+    animation: blink 1.2s steps(2, start) infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent;
+  }
+  
+  .glassmorphism {
+    @apply backdrop-blur-md bg-gray-900/30 border border-gray-700/50;
+  }
+  
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+  
+  .tooltip {
+    @apply relative;
+  }
+  
+  .tooltip:hover .tooltip-text {
+    @apply opacity-100 visible;
+  }
+  
+  .tooltip-text {
+    @apply invisible opacity-0 absolute z-50 px-2 py-1 text-xs font-mono text-gray-100 bg-gray-800 border border-gray-600 rounded-md shadow-lg transition-all duration-200;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  
+  .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -4px;
+    border-width: 4px;
+    border-style: solid;
+    border-color: theme('colors.gray.600') transparent transparent transparent;
+  }
+  
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 20px -10px theme('colors.primary.500');
+    }
+    to {
+      box-shadow: 0 0 20px -5px theme('colors.primary.400');
+    }
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: theme('colors.gray.900');
+}
+
+::-webkit-scrollbar-thumb {
+  background: theme('colors.gray.600');
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.gray.500');
+}
+
+/* Loading animations */
+.skeleton {
+  @apply animate-pulse bg-gray-800 rounded;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.04),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}

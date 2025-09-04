@@ -1,0 +1,20 @@
+__pycache__
+.env
+.history
+.hypothesis/
+build/
+reports/
+
+# Virtual environment
+venv/
+*.venv/
+env/
+
+# Generated files
+deployment_info.json
+indexer/rindexer/rindexer-dev.yaml
+
+# Log files
+logs/
+*.log
+cache/

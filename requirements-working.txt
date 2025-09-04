@@ -1,0 +1,45 @@
+# ============================================================================
+# WORKING PYTHON DEPENDENCIES FOR AUCTION SYSTEM
+# ============================================================================
+# This is a simplified version that avoids dependency conflicts
+# Install with: pip install -r requirements-working.txt
+
+# ============================================================================
+# CORE INDEXER DEPENDENCIES (Required for indexer/backfill)
+# ============================================================================
+web3>=6.0.0                 # Web3 Python library for blockchain interaction
+psycopg2-binary>=2.9.0      # PostgreSQL adapter
+pyyaml>=6.0.0               # YAML configuration file support
+python-dotenv>=0.21.0       # Environment variable loading (updated for pydantic-settings compatibility)
+
+# ============================================================================
+# API DEPENDENCIES (Required for FastAPI backend)
+# ============================================================================
+fastapi>=0.104.0            # Modern web framework
+uvicorn[standard]>=0.24.0   # ASGI server
+asyncpg>=0.29.0             # Async PostgreSQL driver for FastAPI
+sqlalchemy[asyncio]>=2.0.0  # SQL toolkit with async support
+pydantic-settings>=2.1.0    # Settings management for Pydantic V2
+
+# ============================================================================
+# REDIS DEPENDENCIES (Required for pub/sub messaging)
+# ============================================================================
+redis>=5.0.0                # Redis client for streams and messaging
+
+# ============================================================================
+# TELEGRAM BOT DEPENDENCIES (Required for auction alerts)
+# ============================================================================
+python-telegram-bot>=20.0  # Telegram bot framework with async support
+
+# ============================================================================
+# BLOCKCHAIN DEVELOPMENT (Optional - for smart contract work)
+# ============================================================================
+# eth-brownie>=1.20.0       # Uncomment only if needed for contract development
+# ypricemagic>=1.1.0        # Uncomment only if needed for pricing
+
+# ============================================================================
+# UTILITIES & TESTING
+# ============================================================================
+rich>=13.0.0                # Rich text and beautiful formatting
+httpx>=0.25.0               # HTTP client for testing APIs
+pytest>=6.2.0              # Testing framework

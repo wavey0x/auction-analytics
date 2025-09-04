@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  api-and-ui:
+    runs-on: ubuntu-latest
+    env:
+      APP_MODE: dev
+      DEV_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install API deps
+        run: |
+          cd monitoring/api
+          python -m pip install --upgrade pip
+          if [ -f requirements-working.txt ]; then pip install -r requirements-working.txt; else pip install -r requirements.txt; fi
+
+      - name: Launch API
+        run: |
+          cd monitoring/api
+          nohup python -m uvicorn app:app --host 127.0.0.1 --port 8000 --workers 1 > ../../api_ci.log 2>&1 &
+          echo $! > ../../api_ci.pid
+          sleep 3
+
+      - name: Smoke test API
+        run: |
+          bash scripts/ci_smoke.sh http://127.0.0.1:8000
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build UI
+        run: |
+          cd ui
+          npm ci
+          npm run build
+
+      - name: Tear down API
+        if: always()
+        run: |
+          if [ -f api_ci.pid ]; then kill $(cat api_ci.pid) || true; fi
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: api-and-ui
+    env:
+      APP_MODE: dev
+      DEV_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install API deps + test deps
+        run: |
+          cd monitoring/api
+          python -m pip install --upgrade pip
+          if [ -f requirements-working.txt ]; then pip install -r requirements-working.txt; else pip install -r requirements.txt; fi
+          pip install pytest pytest-asyncio httpx anyio
+
+      - name: Launch API
+        run: |
+          cd monitoring/api
+          nohup python -m uvicorn app:app --host 127.0.0.1 --port 8000 --workers 1 > ../../api_ci.log 2>&1 &
+          echo $! > ../../api_ci.pid
+          sleep 3
+
+      - name: Run integration tests
+        env:
+          BASE_URL: http://127.0.0.1:8000
+        run: |
+          pytest -q tests/api
+
+      - name: Tear down API
+        if: always()
+        run: |
+          if [ -f api_ci.pid ]; then kill $(cat api_ci.pid) || true; fi
