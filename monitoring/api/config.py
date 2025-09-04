@@ -7,8 +7,10 @@ Supports mock, development, and production modes.
 import os
 from enum import Enum
 from typing import Optional
-from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv("../../.env")
 
 
 class AppMode(str, Enum):
@@ -20,75 +22,77 @@ class AppMode(str, Enum):
     PROD = "prod"  # Alias for production
 
 
-class Settings(BaseSettings):
+class Settings:
     """Application settings with environment-based configuration"""
     
-    # Application mode
-    app_mode: AppMode = AppMode.MOCK
+    def __init__(self):
+        # Application mode
+        mode_str = os.getenv("APP_MODE", "mock").lower()
+        try:
+            self.app_mode = AppMode(mode_str)
+        except ValueError:
+            self.app_mode = AppMode.MOCK
+        
+        # API settings
+        self.api_host = os.getenv("API_HOST", "0.0.0.0")
+        self.api_port = int(os.getenv("API_PORT", "8000"))
+        self.cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+        
+        # Database settings (only used in development/production)
+        self.database_url = os.getenv("DATABASE_URL")
+        
+        # Mode-specific database URLs
+        self.dev_database_url = os.getenv("DEV_DATABASE_URL")
+        self.prod_database_url = os.getenv("PROD_DATABASE_URL")
+        self.mock_database_url = os.getenv("MOCK_DATABASE_URL")
+        
+        # Blockchain settings (legacy - for backwards compatibility)
+        self.anvil_rpc_url = os.getenv("ANVIL_RPC_URL", "http://localhost:8545")
+        self.web3_infura_project_id = os.getenv("WEB3_INFURA_PROJECT_ID")
+        
+        # Mode-specific Anvil RPC URLs
+        self.dev_anvil_rpc_url = os.getenv("DEV_ANVIL_RPC_URL")
+        
+        # Rindexer settings (only used in development/production)
+        self.rindexer_database_url = os.getenv("RINDEXER_DATABASE_URL")
+        self.rindexer_rpc_url = os.getenv("RINDEXER_RPC_URL", "http://localhost:8545")
+        
+        # Factory contract settings (legacy - for backwards compatibility)
+        self.factory_address = os.getenv("FACTORY_ADDRESS")
+        self.start_block = self._parse_start_block(os.getenv("START_BLOCK", "0"))
+        
+        # Multi-Network Configuration
+        self.networks_enabled = os.getenv("NETWORKS_ENABLED", "local")  # Comma-separated list: "ethereum,polygon,arbitrum"
+        
+        # Mode-specific network configurations
+        self.dev_networks_enabled = os.getenv("DEV_NETWORKS_ENABLED")
+        self.prod_networks_enabled = os.getenv("PROD_NETWORKS_ENABLED")
+        self.mock_networks_enabled = os.getenv("MOCK_NETWORKS_ENABLED")
+        
+        # Network-specific RPC URLs
+        self.ethereum_rpc_url = os.getenv("ETHEREUM_RPC_URL")
+        self.polygon_rpc_url = os.getenv("POLYGON_RPC_URL")
+        self.arbitrum_rpc_url = os.getenv("ARBITRUM_RPC_URL")
+        self.optimism_rpc_url = os.getenv("OPTIMISM_RPC_URL")
+        self.base_rpc_url = os.getenv("BASE_RPC_URL")
+        
+        # Network-specific factory addresses
+        self.ethereum_factory_address = os.getenv("ETHEREUM_FACTORY_ADDRESS")
+        self.polygon_factory_address = os.getenv("POLYGON_FACTORY_ADDRESS")
+        self.arbitrum_factory_address = os.getenv("ARBITRUM_FACTORY_ADDRESS")
+        self.optimism_factory_address = os.getenv("OPTIMISM_FACTORY_ADDRESS")
+        self.base_factory_address = os.getenv("BASE_FACTORY_ADDRESS")
+        self.local_factory_address = os.getenv("LOCAL_FACTORY_ADDRESS")
+        
+        # Network-specific start blocks
+        self.ethereum_start_block = self._parse_start_block(os.getenv("ETHEREUM_START_BLOCK", "18000000"))
+        self.polygon_start_block = self._parse_start_block(os.getenv("POLYGON_START_BLOCK", "45000000"))
+        self.arbitrum_start_block = self._parse_start_block(os.getenv("ARBITRUM_START_BLOCK", "100000000"))
+        self.optimism_start_block = self._parse_start_block(os.getenv("OPTIMISM_START_BLOCK", "100000000"))
+        self.base_start_block = self._parse_start_block(os.getenv("BASE_START_BLOCK", "1000000"))
+        self.local_start_block = self._parse_start_block(os.getenv("LOCAL_START_BLOCK", "0"))
     
-    # API settings
-    api_host: str = "0.0.0.0"
-    api_port: int = 8000
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
-    
-    # Database settings (only used in development/production)
-    database_url: Optional[str] = None
-    
-    # Mode-specific database URLs
-    dev_database_url: Optional[str] = None
-    prod_database_url: Optional[str] = None
-    mock_database_url: Optional[str] = None
-    
-    # Blockchain settings (legacy - for backwards compatibility)
-    anvil_rpc_url: str = "http://localhost:8545"
-    web3_infura_project_id: Optional[str] = None
-    
-    # Mode-specific Anvil RPC URLs
-    dev_anvil_rpc_url: Optional[str] = None
-    
-    # Rindexer settings (only used in development/production)
-    rindexer_database_url: Optional[str] = None
-    rindexer_rpc_url: str = "http://localhost:8545"
-    
-    # Factory contract settings (legacy - for backwards compatibility)
-    factory_address: Optional[str] = None
-    start_block: Optional[int] = 0
-    
-    # Multi-Network Configuration
-    networks_enabled: str = "local"  # Comma-separated list: "ethereum,polygon,arbitrum"
-    
-    # Mode-specific network configurations
-    dev_networks_enabled: Optional[str] = None
-    prod_networks_enabled: Optional[str] = None
-    mock_networks_enabled: Optional[str] = None
-    
-    # Network-specific RPC URLs
-    ethereum_rpc_url: Optional[str] = None
-    polygon_rpc_url: Optional[str] = None
-    arbitrum_rpc_url: Optional[str] = None
-    optimism_rpc_url: Optional[str] = None
-    base_rpc_url: Optional[str] = None
-    
-    # Network-specific factory addresses
-    ethereum_factory_address: Optional[str] = None
-    polygon_factory_address: Optional[str] = None
-    arbitrum_factory_address: Optional[str] = None
-    optimism_factory_address: Optional[str] = None
-    base_factory_address: Optional[str] = None
-    local_factory_address: Optional[str] = None
-    
-    # Network-specific start blocks
-    ethereum_start_block: Optional[int] = 18000000
-    polygon_start_block: Optional[int] = 45000000
-    arbitrum_start_block: Optional[int] = 100000000
-    optimism_start_block: Optional[int] = 100000000
-    base_start_block: Optional[int] = 1000000
-    local_start_block: Optional[int] = 0
-    
-    @field_validator('start_block', 'ethereum_start_block', 'polygon_start_block', 'arbitrum_start_block', 
-                     'optimism_start_block', 'base_start_block', 'local_start_block', mode='before')
-    @classmethod
-    def parse_start_block(cls, v):
+    def _parse_start_block(self, v):
         """Handle empty strings for start block fields"""
         if v == '' or v is None:
             return None
@@ -130,8 +134,6 @@ class Settings(BaseSettings):
             return self.mock_networks_enabled or "ethereum,polygon,arbitrum,optimism,base,local"
             
         return "local"
-    
-    model_config = {"env_file": "../../.env", "env_file_encoding": "utf-8", "case_sensitive": False, "extra": "ignore"}
 
 
 # Global settings instance

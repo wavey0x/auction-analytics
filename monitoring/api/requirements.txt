@@ -11,7 +11,6 @@ websockets==12.0
 
 # Data processing
 pydantic==2.5.0
-pydantic-settings==2.1.0
 python-multipart==0.0.6
 
 # Caching and Redis
@@ -19,7 +18,7 @@ redis[hiredis]==5.0.1
 aioredis==2.0.1
 
 # Utilities
-python-dotenv==1.0.0
+python-dotenv==0.16.0
 rich==13.7.0
 
 # Development

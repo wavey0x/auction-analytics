@@ -260,9 +260,9 @@ setup_venv() {
             debug "Requirements file not found, installing core dependencies manually"
             # Install core dependencies manually to avoid conflicts
             if [ "$DEBUG_MODE" = true ]; then
-                pip install web3 psycopg2-binary pyyaml fastapi uvicorn asyncpg sqlalchemy httpx pydantic-settings
+                pip install web3 psycopg2-binary pyyaml fastapi uvicorn asyncpg sqlalchemy httpx
             else
-                pip install -q web3 psycopg2-binary pyyaml fastapi uvicorn asyncpg sqlalchemy httpx pydantic-settings
+                pip install -q web3 psycopg2-binary pyyaml fastapi uvicorn asyncpg sqlalchemy httpx
             fi
         fi
         
