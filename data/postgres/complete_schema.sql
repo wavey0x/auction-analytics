@@ -68,6 +68,7 @@ CREATE TABLE auctions (
     
     -- Discovery metadata
     discovered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    timestamp BIGINT, -- Unix timestamp when auction was deployed (from block timestamp)
     factory_address VARCHAR(100),
     
     PRIMARY KEY (auction_address, chain_id)
@@ -77,6 +78,7 @@ CREATE TABLE auctions (
 CREATE INDEX idx_auctions_deployer ON auctions (deployer);
 CREATE INDEX idx_auctions_factory ON auctions (factory_address);
 CREATE INDEX idx_auctions_chain ON auctions (chain_id);
+CREATE INDEX idx_auctions_timestamp ON auctions (timestamp DESC);
 CREATE INDEX idx_auctions_version ON auctions (version);
 
 -- =============================================================================
