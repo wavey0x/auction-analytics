@@ -211,7 +211,6 @@ load_environment() {
     
     # Use dev-specific variables
     export DATABASE_URL="${DEV_DATABASE_URL:-postgresql://wavey@localhost:5433/auction_dev}"
-    export NETWORKS_ENABLED="${DEV_NETWORKS_ENABLED:-local}"
     export CORS_ORIGINS="${DEV_CORS_ORIGINS:-http://localhost:3000}"
     
     # Map production Ethereum variables for development indexing
@@ -221,7 +220,7 @@ load_environment() {
     
     log "Environment loaded (mode: $APP_MODE)"
     log "Database: $DATABASE_URL"
-    log "Networks: $NETWORKS_ENABLED"
+    log "Networks: ${DEV_NETWORKS_ENABLED:-local}"
 }
 
 # Setup unified virtual environment

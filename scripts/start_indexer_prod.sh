@@ -26,7 +26,6 @@ fi
 
 # Validate required production environment variables
 required_vars=(
-    "DATABASE_URL"
     "PROD_DATABASE_URL" 
     "PROD_NETWORKS_ENABLED"
 )
@@ -43,12 +42,10 @@ if [[ ${#missing_vars[@]} -gt 0 ]]; then
     exit 1
 fi
 
-# Ensure NETWORKS_ENABLED excludes 'local'
-export NETWORKS_ENABLED="${PROD_NETWORKS_ENABLED}"
-
-if [[ "${NETWORKS_ENABLED}" == *"local"* ]]; then
-    echo "❌ FATAL: NETWORKS_ENABLED contains 'local' network in production mode"
-    echo "    Current value: ${NETWORKS_ENABLED}"
+# Production safety: ensure PROD_NETWORKS_ENABLED excludes 'local'
+if [[ "${PROD_NETWORKS_ENABLED}" == *"local"* ]]; then
+    echo "❌ FATAL: PROD_NETWORKS_ENABLED contains 'local' network in production mode"
+    echo "    Current value: ${PROD_NETWORKS_ENABLED}"
     echo "    This would attempt to connect to Anvil testnet (chain 31337)"
     echo "    Please update PROD_NETWORKS_ENABLED to exclude 'local'"
     exit 1
@@ -58,12 +55,12 @@ fi
 export DATABASE_URL="${PROD_DATABASE_URL}"
 
 echo "🚀 Starting production indexer..."
-echo "   Networks: ${NETWORKS_ENABLED}"
+echo "   Networks: ${PROD_NETWORKS_ENABLED}"
 echo "   Database: ${DATABASE_URL%%:*}://***@${DATABASE_URL#*@}"
 echo "   Mode: ${APP_MODE}"
 
 # Change to indexer directory
 cd "$(dirname "$0")/../indexer"
 
-# Start indexer with explicit network filtering (double safety)
-exec python3 indexer.py --network "${NETWORKS_ENABLED//,/ }" --config config.yaml
+# Start indexer - it will automatically use PROD_NETWORKS_ENABLED based on APP_MODE=prod
+exec python3 indexer.py --config config.yaml

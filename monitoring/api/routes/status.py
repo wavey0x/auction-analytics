@@ -14,7 +14,7 @@ try:
 except Exception:  # pragma: no cover
     redis = None
 
-# Import using absolute module name because app runs as a script from this folder
+# Import using absolute module name because app runs as a script from project root
 from monitoring.api.database import get_db
 
 router = APIRouter()

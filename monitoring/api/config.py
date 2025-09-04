@@ -66,13 +66,19 @@ class Settings:
         self.factory_address = os.getenv("FACTORY_ADDRESS")
         self.start_block = self._parse_start_block(os.getenv("START_BLOCK", "0"))
         
-        # Multi-Network Configuration
-        self.networks_enabled = os.getenv("NETWORKS_ENABLED", "local")  # Comma-separated list: "ethereum,polygon,arbitrum"
-        
         # Mode-specific network configurations
-        self.dev_networks_enabled = os.getenv("DEV_NETWORKS_ENABLED")
-        self.prod_networks_enabled = os.getenv("PROD_NETWORKS_ENABLED")
-        self.mock_networks_enabled = os.getenv("MOCK_NETWORKS_ENABLED")
+        self.dev_networks_enabled = os.getenv("DEV_NETWORKS_ENABLED", "local")
+        self.prod_networks_enabled = os.getenv("PROD_NETWORKS_ENABLED", "ethereum,polygon,arbitrum,optimism,base")
+        self.mock_networks_enabled = os.getenv("MOCK_NETWORKS_ENABLED", "ethereum,polygon,arbitrum,optimism,base,local")
+        
+        # Set networks based on app mode
+        app_mode = os.getenv("APP_MODE", "dev")
+        if app_mode == "prod":
+            self.networks_enabled = self.prod_networks_enabled
+        elif app_mode == "mock":
+            self.networks_enabled = self.mock_networks_enabled
+        else:  # dev mode
+            self.networks_enabled = self.dev_networks_enabled
         
         # Network-specific RPC URLs
         self.ethereum_rpc_url = os.getenv("ETHEREUM_RPC_URL")

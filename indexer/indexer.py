@@ -1872,22 +1872,33 @@ def main():
     
     args = parser.parse_args()
     
-    # Parse networks - prioritize CLI argument, then environment variable
+    # Parse networks - prioritize CLI argument, then mode-specific environment variable
     networks = None
     if args.network:
         networks = [n.strip() for n in args.network.split(',')]
-    elif 'NETWORKS_ENABLED' in os.environ:
-        networks_enabled = os.environ['NETWORKS_ENABLED'].strip()
+    else:
+        # Use mode-specific network configuration
+        app_mode = os.environ.get('APP_MODE', 'dev')
+        if app_mode == 'prod':
+            networks_enabled = os.environ.get('PROD_NETWORKS_ENABLED', 'ethereum,polygon,arbitrum,optimism,base')
+            source_var = 'PROD_NETWORKS_ENABLED'
+        elif app_mode == 'mock':
+            networks_enabled = os.environ.get('MOCK_NETWORKS_ENABLED', 'ethereum,polygon,arbitrum,optimism,base,local')
+            source_var = 'MOCK_NETWORKS_ENABLED'
+        else:  # dev mode
+            networks_enabled = os.environ.get('DEV_NETWORKS_ENABLED', 'local')
+            source_var = 'DEV_NETWORKS_ENABLED'
+        
         if networks_enabled:
             networks = [n.strip() for n in networks_enabled.split(',')]
-            logger.info(f"Using networks from NETWORKS_ENABLED: {networks}")
+            logger.info(f"Using networks from {source_var} (APP_MODE={app_mode}): {networks}")
     
-    # Filter out 'local' network in production to prevent Anvil processing
+    # Production safety: never process 'local' network in production mode
     if networks and 'local' in networks:
         app_mode = os.environ.get('APP_MODE', 'dev')
         if app_mode == 'prod':
             networks.remove('local')
-            logger.warning(f"⚠️  Removed 'local' network in production mode - filtered networks: {networks}")
+            logger.warning(f"🚨 SECURITY: Removed 'local' network in production mode - filtered networks: {networks}")
     
     # Create indexer
     try:
