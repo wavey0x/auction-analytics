@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
 
@@ -22,7 +22,7 @@ const ChainIcon: React.FC<ChainIconProps> = ({
     queryKey: ['chain', chainId],
     queryFn: () => apiClient.getChain(chainId),
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
-    cacheTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours (renamed from cacheTime in v5)
     retry: false, // Don't retry failed requests
     refetchOnWindowFocus: false, // Don't refetch when window gains focus
     refetchOnReconnect: false, // Don't refetch on network reconnect
