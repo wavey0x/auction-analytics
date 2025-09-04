@@ -87,10 +87,13 @@ class MulticallService {
   ): Promise<any[]> {
     const startTime = Date.now()
     
+    console.debug(`Multicall: Getting RPC client for chain ${chainId}`)
     const client = await getRPCClient(chainId)
     if (!client) {
       const duration = Date.now() - startTime
       const errorMsg = `No RPC client available for chain ${chainId}`
+      
+      console.error(errorMsg)
       
       // Record failure in health monitor
       rpcHealthMonitor.recordFailure(chainId, duration, errorMsg)
@@ -100,6 +103,8 @@ class MulticallService {
       }
       throw new Error(errorMsg)
     }
+    
+    console.debug(`Multicall: Got client for chain ${chainId}:`, client)
 
     try {
       const results = await client.multicall({

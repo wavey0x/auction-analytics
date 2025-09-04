@@ -1,7 +1,7 @@
 import React from 'react'
 import { X, AlertTriangle, AlertCircle, Info } from 'lucide-react'
 import { useErrors, type AppError, type ErrorSeverity } from '../context/ErrorContext'
-import { ChainIcon } from './ChainIcon'
+import ChainIcon from './ChainIcon'
 
 const getSeverityIcon = (severity: ErrorSeverity) => {
   switch (severity) {

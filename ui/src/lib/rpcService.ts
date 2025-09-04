@@ -75,6 +75,12 @@ class RPCService {
    * Extract credentials from URL and create proper transport config
    */
   private createHttpTransport(url: string) {
+    console.debug('Creating HTTP transport for URL:', url, typeof url)
+    if (typeof url !== 'string') {
+      console.error('URL passed to createHttpTransport is not a string:', url)
+      throw new Error(`Invalid URL type: ${typeof url}`)
+    }
+    
     try {
       const urlObj = new URL(url)
       
@@ -100,6 +106,7 @@ class RPCService {
         })
       } else {
         // No credentials, use URL as-is with timeout config
+        console.debug('Creating simple HTTP transport for URL:', url)
         return http(url, {
           timeout: 10000, // 10 second timeout
           retryCount: 3,
@@ -123,17 +130,32 @@ class RPCService {
   private async createClient(chainId: number): Promise<PublicClient | null> {
     // If a custom RPC is enabled, prefer it for transport
     const useCustom = this.customRpcEnabled && this.customRpcUrl
+    
+    // Debug logging to catch URL issues
+    if (useCustom) {
+      console.debug(`Using custom RPC for chain ${chainId}:`, this.customRpcUrl)
+      if (typeof this.customRpcUrl !== 'string') {
+        console.error('Custom RPC URL is not a string:', this.customRpcUrl)
+        return null
+      }
+    }
 
     // First try to get chain from viem's built-in chains
     const viemChain = chainMap[chainId]
     if (viemChain) {
+      console.debug(`Creating client for viem chain ${chainId}:`, viemChain.name)
+      const transport = useCustom 
+        ? this.createHttpTransport(this.customRpcUrl!) 
+        : http(viemChain.rpcUrls.default.http[0], {
+            timeout: 10000,
+            retryCount: 3,
+            retryDelay: ({ count }) => Math.min(1000 * Math.pow(2, count), 5000)
+          })
+      console.debug(`Transport created for chain ${chainId}`)
+      
       return createPublicClient({
         chain: viemChain,
-        transport: useCustom ? this.createHttpTransport(this.customRpcUrl!) : http({
-          timeout: 10000,
-          retryCount: 3,
-          retryDelay: ({ count }) => Math.min(1000 * Math.pow(2, count), 5000)
-        })
+        transport
       })
     }
     

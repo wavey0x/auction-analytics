@@ -90,7 +90,7 @@ export class EventStreamService {
         
         // Handle system messages (like "connected", heartbeat)
         if (data.type === 'connected') {
-          console.log('📡 Event stream ready')
+          // Event stream connected silently
           return
         }
         if (data.type === 'heartbeat') {
