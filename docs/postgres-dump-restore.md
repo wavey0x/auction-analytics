@@ -19,15 +19,16 @@ Dump Dev
 
 Restore to Prod
 - Ensure the target database exists and required extensions are installed.
-- Command: `PROD_DATABASE_URL=... ./scripts/restore_prod.sh [dump_path] [jobs]`
+- Command: `PROD_DATABASE_URL=... ./scripts/restore_prod.sh [dump_path] [jobs] [--reset-schema[=public]]`
 - Flags used:
   - `--clean --if-exists`: drop objects first to match dump state
   - `--no-owner --no-privileges`: avoid cross-env ownership/GRANT issues
   - `--jobs N`: parallel restore (default 4)
+  - `--reset-schema[=NAME]`: drops and recreates the schema (default `public`) before restore for a clean slate
 
 Notes & Tips
 - Extensions: If objects belong to an extension, they are not dumped; ensure `CREATE EXTENSION ...` exists on prod before restore.
+- Reset schema caveat: Dropping `public` with CASCADE will remove extension-owned objects in that schema; recreate required extensions before or after restore as needed.
 - Collations/ICU: If specific collations are referenced, they must exist on prod; otherwise restore fails with a clear error.
 - Filtering: Avoid `--data-only`, `--schema-only`, `-t/--table`, or `-n/--schema` unless intentionally limiting scope.
 - SQL alternative: Plain SQL is easier to read but slower to restore and not parallelizable; prefer the custom archive for prod loads.
-
