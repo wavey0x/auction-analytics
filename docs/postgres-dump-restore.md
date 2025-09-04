@@ -1,0 +1,33 @@
+PostgreSQL Dump/Restore (Dev → Prod)
+
+Overview
+- Uses logical dump: includes schema (pre/post-data) and data.
+- Portable across OS/CPU; keep client same major version as server (16.x).
+- Extensions must exist on the target; pg_dump skips extension-owned objects.
+
+Prereqs
+- `pg_dump` and `pg_restore` available (version 16.x recommended).
+- `DEV_DATABASE_URL` and `PROD_DATABASE_URL` env vars set.
+
+Dump Dev
+- Command: `DEV_DATABASE_URL=... ./scripts/dump_dev.sh [out_dir] [--sql]`
+- Outputs:
+  - Custom archive: `data/postgres/auction_dev.dump` (default)
+  - Optional plain SQL: `data/postgres/full.sql` when `--sql` is passed
+- Verifying contents:
+  - `pg_restore --list data/postgres/auction_dev.dump | egrep -i "VIEW|INDEX|CONSTRAINT|TRIGGER|FUNCTION" | head`
+
+Restore to Prod
+- Ensure the target database exists and required extensions are installed.
+- Command: `PROD_DATABASE_URL=... ./scripts/restore_prod.sh [dump_path] [jobs]`
+- Flags used:
+  - `--clean --if-exists`: drop objects first to match dump state
+  - `--no-owner --no-privileges`: avoid cross-env ownership/GRANT issues
+  - `--jobs N`: parallel restore (default 4)
+
+Notes & Tips
+- Extensions: If objects belong to an extension, they are not dumped; ensure `CREATE EXTENSION ...` exists on prod before restore.
+- Collations/ICU: If specific collations are referenced, they must exist on prod; otherwise restore fails with a clear error.
+- Filtering: Avoid `--data-only`, `--schema-only`, `-t/--table`, or `-n/--schema` unless intentionally limiting scope.
+- SQL alternative: Plain SQL is easier to read but slower to restore and not parallelizable; prefer the custom archive for prod loads.
+
