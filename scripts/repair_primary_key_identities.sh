@@ -35,13 +35,13 @@ fi
 echo "[repair_pk_identities] Using URL=${TARGET_URL%%\?*}"
 echo "[repair_pk_identities] Schema: $SCHEMA"
 
-"$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 -v SCHEMA="$SCHEMA" <<'SQL'
+"$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 <<SQL
+SET search_path TO "$SCHEMA", pg_catalog;
 DO $$
 DECLARE
   r record;
   seq_name text;
   max_id bigint;
-  schema_name text := :'SCHEMA';
 BEGIN
   -- 1) Primary-key integer columns missing identity/default
   FOR r IN
@@ -56,7 +56,7 @@ BEGIN
      AND k.table_name=tc.table_name
      AND k.constraint_name=tc.constraint_name
      AND k.column_name=c.column_name
-    WHERE c.table_schema = schema_name
+    WHERE c.table_schema = current_schema
       AND c.udt_name IN ('int2','int4','int8')
       AND (c.column_default IS NULL OR c.column_default = '')
       AND c.is_identity = 'NO'
@@ -93,7 +93,7 @@ BEGIN
       WHERE tc.constraint_type='PRIMARY KEY'
     ) pk
       ON pk.table_schema=c.table_schema AND pk.table_name=c.table_name AND pk.column_name=c.column_name
-    WHERE c.table_schema = schema_name
+    WHERE c.table_schema = current_schema
       AND c.column_name='id'
       AND c.is_nullable='NO'
       AND c.udt_name IN ('int2','int4','int8')
@@ -125,11 +125,11 @@ echo "[repair_pk_identities] Completed."
 
 if [[ "$DROP_NN" == "yes" ]]; then
   echo "[repair_pk_identities] Dropping NOT NULL where no defaults exist (non-PK, non-identity) in schema '$SCHEMA'..."
-  "$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 -v SCHEMA="$SCHEMA" <<'SQL'
+  "$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 <<SQL
+SET search_path TO "$SCHEMA", pg_catalog;
 DO $$
 DECLARE
   r record;
-  schema_name text := :'SCHEMA';
 BEGIN
   FOR r IN
     WITH pk_cols AS (
@@ -143,7 +143,7 @@ BEGIN
     FROM information_schema.columns c
     LEFT JOIN pk_cols pk
       ON pk.table_schema=c.table_schema AND pk.table_name=c.table_name AND pk.column_name=c.column_name
-    WHERE c.table_schema = schema_name
+    WHERE c.table_schema = current_schema
       AND c.is_nullable='NO'
       AND (c.column_default IS NULL OR c.column_default = '')
       AND c.is_identity='NO'
