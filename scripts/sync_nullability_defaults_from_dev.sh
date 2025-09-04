@@ -106,6 +106,10 @@ awk -F '\t' '
 ' "$DEV_FILE" "$PROD_FILE" > "$PLAN_FILE"
 
 echo "[sync] Plan written: $PLAN_FILE"
+if [[ -n "$OUTPUT" ]]; then
+  cp "$PLAN_FILE" "$OUTPUT"
+  echo "[sync] Plan copied to: $OUTPUT"
+fi
 if [[ -s "$PLAN_FILE" ]]; then
   echo "[sync] Preview (first 30 lines):"
   sed -n '1,30p' "$PLAN_FILE"
@@ -118,4 +122,3 @@ if [[ "$APPLY" == "yes" && -s "$PLAN_FILE" ]]; then
   "$PSQL_BIN" "$PROD_URL" -v ON_ERROR_STOP=1 -f "$PLAN_FILE"
   echo "[sync] Done."
 fi
-
