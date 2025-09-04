@@ -110,11 +110,26 @@ COMMENT ON COLUMN price_requests.price_source IS 'Intended price service(s): all
 COMMENT ON COLUMN token_prices.txn_timestamp IS 'Unix timestamp from the blockchain transaction that generated this price request';
 
 -- Add flexible constraints (allow any string values)
-ALTER TABLE price_requests ADD CONSTRAINT IF NOT EXISTS price_requests_request_type_check 
-    CHECK (request_type IS NOT NULL AND LENGTH(request_type) > 0);
+DO $$
+BEGIN
+    -- Add request_type constraint if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'price_requests' AND constraint_name = 'price_requests_request_type_check'
+    ) THEN
+        ALTER TABLE price_requests ADD CONSTRAINT price_requests_request_type_check 
+            CHECK (request_type IS NOT NULL AND LENGTH(request_type) > 0);
+    END IF;
     
-ALTER TABLE price_requests ADD CONSTRAINT IF NOT EXISTS price_requests_status_check 
-    CHECK (status IS NOT NULL AND LENGTH(status) > 0);
+    -- Add status constraint if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE table_name = 'price_requests' AND constraint_name = 'price_requests_status_check'
+    ) THEN
+        ALTER TABLE price_requests ADD CONSTRAINT price_requests_status_check 
+            CHECK (status IS NOT NULL AND LENGTH(status) > 0);
+    END IF;
+END $$;
 
 -- ============================================================================
 -- VERIFICATION
