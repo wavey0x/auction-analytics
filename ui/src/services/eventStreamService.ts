@@ -155,7 +155,7 @@ export class EventStreamService {
   private transformEventToNotification(event: RedisStreamEvent): Omit<Notification, 'dismissAt'> | null {
     try {
       // Handle payload_json - should now be an object after backend processing
-      let payload = {}
+      let payload: any = {}
       if (event.payload_json) {
         if (typeof event.payload_json === 'object') {
           payload = event.payload_json
@@ -191,8 +191,8 @@ export class EventStreamService {
             roundId: event.round_id ? parseInt(event.round_id) : undefined,
             fromTokenSymbol: this.getTokenSymbol(event.from_token, chainId),
             wantTokenSymbol: this.getTokenSymbol(event.want_token, chainId),
-            initialAvailable: payload.initial_available,
-            kicker: payload.kicker
+            initialAvailable: payload.initial_available || 0,
+            kicker: payload.kicker || 'unknown'
           }
           break
 
@@ -200,9 +200,9 @@ export class EventStreamService {
           content = {
             ...baseContent,
             roundId: event.round_id ? parseInt(event.round_id) : undefined,
-            taker: payload.taker,
-            amountTaken: payload.amount_taken,
-            amountPaid: payload.amount_paid,
+            taker: payload.taker || 'unknown',
+            amountTaken: payload.amount_taken || 0,
+            amountPaid: payload.amount_paid || 0,
             fromTokenSymbol: this.getTokenSymbol(event.from_token, chainId),
             wantTokenSymbol: this.getTokenSymbol(event.want_token, chainId)
           }
@@ -211,11 +211,11 @@ export class EventStreamService {
         case 'deploy':
           content = {
             ...baseContent,
-            version: payload.version,
+            version: payload.version || 'unknown',
             wantTokenSymbol: this.getTokenSymbol(event.want_token, chainId),
-            startingPrice: payload.starting_price,
-            decayRate: payload.decay_rate,
-            governance: payload.governance
+            startingPrice: payload.starting_price || 0,
+            decayRate: payload.decay_rate || 0,
+            governance: payload.governance || 'unknown'
           }
           break
 
@@ -224,7 +224,7 @@ export class EventStreamService {
       }
 
       return {
-        id: event.id || event.uniq, // Use event.id from fire_events.py, fallback to uniq for indexer events
+        id: (event as any).id || (event as any).uniq || 'unknown', // Use event.id from fire_events.py, fallback to uniq for indexer events
         type,
         timestamp: Date.now(), // Use current time since fire_events doesn't provide timestamp
         content

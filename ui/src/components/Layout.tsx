@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { Gavel, Activity, TrendingUp, Settings, Book } from 'lucide-react'
+import { Link } from 'react-router-dom'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Gavel, Settings, Book } from 'lucide-react'
 import SettingsModal from './SettingsModal'
 import NotificationContainer from './NotificationContainer'
 import ErrorNotification from './ErrorNotification'
@@ -16,9 +17,9 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const location = useLocation()
+  // const location = useLocation() // unused
 
-  const navigation = []
+  const navigation: Array<{name: string; href: string; icon: any; current: boolean}> = []
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { customRpcWarning, dismissCustomRpcWarning, disableCustomRpc } = useUserSettings()
@@ -112,7 +113,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </div>
                 <div>
                   <h1 className="logo-8bit glow-text text-[20px] sm:text-[22px] font-black leading-none text-primary-300">
-                    [ AUCTION <span className="text-gray-200">ANALYTICS</span> ]
+                    <span className="logo-bracket logo-bracket-left text-gray-200" aria-hidden="true">[</span>
+                    <span className="logo-title-text">AUCTION <span className="text-gray-200">ANALYTICS</span></span>
+                    <span className="logo-bracket logo-bracket-right text-primary-300" aria-hidden="true">]</span>
                   </h1>
                 </div>
               </Link>

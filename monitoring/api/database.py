@@ -536,46 +536,129 @@ class DatabaseQueries:
             "takes": "total_takes DESC",
             "recent": "last_take DESC NULLS LAST"
         }.get(sort_by, "total_volume_usd DESC NULLS LAST")
-        
+        # Use dynamic view; if missing or empty, compute from vw_takes_enriched
+        summary_relation = 'vw_takers_summary'
         chain_filter = ""
         if chain_id:
+            # Both MV and VW expose active_chains int[]; use it when available
             chain_filter = f"WHERE {chain_id} = ANY(active_chains)"
-        
+
         offset = (page - 1) * limit
-        
-        # Use materialized view with pre-calculated rankings
-        query = text(f"""
-            SELECT 
-                taker,
-                total_takes,
-                unique_auctions,
-                unique_chains,
-                total_volume_usd,
-                avg_take_size_usd,
-                first_take,
-                last_take,
-                active_chains,
-                rank_by_takes,
-                rank_by_volume,
-                total_profit_usd,
-                success_rate_percent,
-                takes_last_7d,
-                takes_last_30d,
-                volume_last_7d,
-                volume_last_30d
-            FROM mv_takers_summary
-            {chain_filter}
-            ORDER BY {order_clause}
-            LIMIT :limit OFFSET :offset
-        """)
-        
-        result = await db.execute(query, {"limit": limit, "offset": offset})
-        takers = [dict(row._mapping) for row in result.fetchall()]
-        
-        # Get total count
-        count_query = text(f"SELECT COUNT(*) FROM mv_takers_summary {chain_filter}")
-        total = (await db.execute(count_query)).scalar()
-        
+        takers: list[dict] = []
+        total: Optional[int] = None
+
+        # Try dynamic view first
+        try:
+            query = text(f"""
+                SELECT 
+                    taker,
+                    total_takes,
+                    unique_auctions,
+                    unique_chains,
+                    total_volume_usd,
+                    avg_take_size_usd,
+                    first_take,
+                    last_take,
+                    active_chains,
+                    rank_by_takes,
+                    rank_by_volume,
+                    total_profit_usd,
+                    success_rate_percent,
+                    takes_last_7d,
+                    takes_last_30d,
+                    volume_last_7d,
+                    volume_last_30d
+                FROM {summary_relation}
+                {chain_filter}
+                ORDER BY {order_clause}
+                LIMIT :limit OFFSET :offset
+            """)
+            result = await db.execute(query, {"limit": limit, "offset": offset})
+            takers = [dict(row._mapping) for row in result.fetchall()]
+            count_query = text(f"SELECT COUNT(*) FROM {summary_relation} {chain_filter}")
+            total = (await db.execute(count_query)).scalar()
+        except Exception:
+            takers = []
+            total = 0
+
+        # Fallback: If MV exists but is empty (or unavailable), compute on-the-fly from vw_takes_enriched
+        if not takers and (not total or total == 0):
+            fallback_cte = f"""
+                WITH taker_base AS (
+                    SELECT 
+                        LOWER(t.taker) AS taker,
+                        COUNT(*) AS total_takes,
+                        COUNT(DISTINCT t.auction_address) AS unique_auctions,
+                        COUNT(DISTINCT t.chain_id) AS unique_chains,
+                        COALESCE(SUM(t.amount_taken_usd), 0) AS total_volume_usd,
+                        AVG(t.amount_taken_usd) AS avg_take_size_usd,
+                        COALESCE(SUM(t.price_differential_usd), 0) AS total_profit_usd,
+                        AVG(t.price_differential_usd) AS avg_profit_per_take_usd,
+                        MIN(t.timestamp) AS first_take,
+                        MAX(t.timestamp) AS last_take,
+                        ARRAY_AGG(DISTINCT t.chain_id ORDER BY t.chain_id) AS active_chains,
+                        COUNT(*) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '7 days') AS takes_last_7d,
+                        COUNT(*) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days') AS takes_last_30d,
+                        COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '7 days'), 0) AS volume_last_7d,
+                        COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days'), 0) AS volume_last_30d,
+                        COUNT(*) FILTER (WHERE t.price_differential_usd > 0) AS profitable_takes,
+                        COUNT(*) FILTER (WHERE t.price_differential_usd < 0) AS unprofitable_takes
+                    FROM vw_takes_enriched t
+                    WHERE t.taker IS NOT NULL
+                    {('AND t.chain_id = :chain_id') if chain_id else ''}
+                    GROUP BY LOWER(t.taker)
+                ), ranked AS (
+                    SELECT 
+                        *,
+                        RANK() OVER (ORDER BY total_takes DESC) AS rank_by_takes,
+                        RANK() OVER (ORDER BY total_volume_usd DESC NULLS LAST) AS rank_by_volume,
+                        RANK() OVER (ORDER BY total_profit_usd DESC NULLS LAST) AS rank_by_profit,
+                        CASE WHEN (profitable_takes + unprofitable_takes) > 0
+                             THEN profitable_takes::DECIMAL / (profitable_takes + unprofitable_takes) * 100
+                             ELSE NULL END AS success_rate_percent
+                    FROM taker_base
+                )
+            """
+
+            # Total from fallback
+            fb_total_query = text(f"""
+                {fallback_cte}
+                SELECT COUNT(*) FROM ranked
+            """)
+            fb_params = {}
+            if chain_id:
+                fb_params["chain_id"] = chain_id
+            total = (await db.execute(fb_total_query, fb_params)).scalar() or 0
+
+            # Page from fallback
+            fb_query = text(f"""
+                {fallback_cte}
+                SELECT 
+                    taker,
+                    total_takes,
+                    unique_auctions,
+                    unique_chains,
+                    total_volume_usd,
+                    avg_take_size_usd,
+                    first_take,
+                    last_take,
+                    active_chains,
+                    rank_by_takes,
+                    rank_by_volume,
+                    total_profit_usd,
+                    success_rate_percent,
+                    takes_last_7d,
+                    takes_last_30d,
+                    volume_last_7d,
+                    volume_last_30d
+                FROM ranked
+                ORDER BY {order_clause}
+                LIMIT :limit OFFSET :offset
+            """)
+            fb_params.update({"limit": limit, "offset": offset})
+            fb_result = await db.execute(fb_query, fb_params)
+            takers = [dict(row._mapping) for row in fb_result.fetchall()]
+
         return {
             "takers": takers,
             "total": total or 0,
@@ -610,7 +693,7 @@ class DatabaseQueries:
                 volume_last_30d,
                 profitable_takes,
                 unprofitable_takes
-            FROM mv_takers_summary
+            FROM vw_takers_summary
             WHERE LOWER(taker) = LOWER(:taker)
         """)
         
@@ -618,8 +701,61 @@ class DatabaseQueries:
         taker_data = result.fetchone()
         
         if not taker_data:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=404, detail="Taker not found")
+            # Fallback: compute directly from vw_takes_enriched if MV empty/not populated
+            fb_query = text("""
+                WITH base AS (
+                    SELECT 
+                        LOWER(t.taker) AS taker,
+                        COUNT(*) AS total_takes,
+                        COUNT(DISTINCT t.auction_address) AS unique_auctions,
+                        COUNT(DISTINCT t.chain_id) AS unique_chains,
+                        COALESCE(SUM(t.amount_taken_usd), 0) AS total_volume_usd,
+                        AVG(t.amount_taken_usd) AS avg_take_size_usd,
+                        MIN(t.timestamp) AS first_take,
+                        MAX(t.timestamp) AS last_take,
+                        ARRAY_AGG(DISTINCT t.chain_id ORDER BY t.chain_id) AS active_chains,
+                        COALESCE(SUM(t.price_differential_usd), 0) AS total_profit_usd,
+                        AVG(t.price_differential_usd) AS avg_profit_per_take_usd,
+                        COUNT(*) FILTER (WHERE t.price_differential_usd > 0) AS profitable_takes,
+                        COUNT(*) FILTER (WHERE t.price_differential_usd < 0) AS unprofitable_takes,
+                        COUNT(*) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '7 days') AS takes_last_7d,
+                        COUNT(*) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days') AS takes_last_30d,
+                        COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '7 days'), 0) AS volume_last_7d,
+                        COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days'), 0) AS volume_last_30d
+                    FROM vw_takes_enriched t
+                    WHERE LOWER(t.taker) = LOWER(:taker)
+                )
+                SELECT 
+                    taker,
+                    total_takes,
+                    unique_auctions,
+                    unique_chains,
+                    total_volume_usd,
+                    avg_take_size_usd,
+                    first_take,
+                    last_take,
+                    active_chains,
+                    -- Ranks require global context; set NULL in fallback
+                    NULL::INTEGER AS rank_by_takes,
+                    NULL::INTEGER AS rank_by_volume,
+                    total_profit_usd,
+                    avg_profit_per_take_usd,
+                    CASE WHEN (profitable_takes + unprofitable_takes) > 0
+                         THEN profitable_takes::DECIMAL / (profitable_takes + unprofitable_takes) * 100
+                         ELSE NULL END AS success_rate_percent,
+                    takes_last_7d,
+                    takes_last_30d,
+                    volume_last_7d,
+                    volume_last_30d,
+                    profitable_takes,
+                    unprofitable_takes
+                FROM base
+            """)
+            fb_res = await db.execute(fb_query, {"taker": taker_address})
+            taker_data = fb_res.fetchone()
+            if not taker_data:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=404, detail="Taker not found")
         
         # Get auction breakdown using enriched view
         auction_breakdown_query = text("""
@@ -1326,7 +1462,11 @@ class DatabaseDataProvider(DataProvider):
                         ar.kicked_at,
                         ar.initial_available,
                         ar.transaction_hash,
+                        ar.round_start,
+                        ar.round_end,
                         (ar.round_end > EXTRACT(EPOCH FROM NOW())::BIGINT AND ar.available_amount > 0) as is_active,
+                        GREATEST(0, (ar.round_end - EXTRACT(EPOCH FROM NOW())::BIGINT))::INTEGER as time_remaining,
+                        GREATEST(0, (EXTRACT(EPOCH FROM NOW())::BIGINT - COALESCE(ar.round_start, ar.kicked_at)))::INTEGER as seconds_elapsed,
                         COUNT(t.take_seq) as total_takes
                     FROM rounds ar
                     JOIN auctions ahp 
@@ -1340,7 +1480,7 @@ class DatabaseDataProvider(DataProvider):
                         {chain_filter}
                         {token_filter}
                         {round_filter}
-                    GROUP BY ar.round_id, ar.from_token, ar.kicked_at, ar.initial_available, ar.transaction_hash, ar.round_end, ar.available_amount
+                    GROUP BY ar.round_id, ar.from_token, ar.kicked_at, ar.initial_available, ar.transaction_hash, ar.round_end, ar.available_amount, ar.round_start
                     ORDER BY ar.round_id DESC
                     LIMIT :limit
                 """)
@@ -1370,13 +1510,17 @@ class DatabaseDataProvider(DataProvider):
                         "round_id": round_row.round_id,
                         "from_token": round_row.from_token,
                         "kicked_at": kicked_at_iso,
-                        "round_start": round_row.round_start if hasattr(round_row, 'round_start') and round_row.round_start else round_row.kicked_at,
-                        "round_end": round_row.round_end if hasattr(round_row, 'round_end') and round_row.round_end else None,
+                        "round_start": round_row.round_start if hasattr(round_row, 'round_start') and round_row.round_start is not None else round_row.kicked_at,
+                        "round_end": round_row.round_end if hasattr(round_row, 'round_end') else None,
                         "initial_available": str(round_row.initial_available) if round_row.initial_available else "0",
                         "transaction_hash": round_row.transaction_hash if hasattr(round_row, 'transaction_hash') else None,
                         "is_active": round_row.is_active or False,
                         "total_takes": round_row.total_takes or 0
                     }
+                    if hasattr(round_row, 'time_remaining'):
+                        round_info["time_remaining"] = round_row.time_remaining
+                    if hasattr(round_row, 'seconds_elapsed'):
+                        round_info["seconds_elapsed"] = round_row.seconds_elapsed
                     rounds.append(round_info)
                 
                 logger.info(f"Successfully loaded {len(rounds)} rounds from database for {auction_address}")

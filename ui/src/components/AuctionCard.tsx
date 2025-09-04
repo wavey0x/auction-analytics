@@ -2,15 +2,12 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Clock, 
-  TrendingUp, 
   TrendingDown, 
-  Users, 
-  DollarSign,
   Coins,
   Activity
 } from 'lucide-react'
 import type { AuctionListItem } from '../types/auction'
-import { formatAddress, formatTokenAmount, formatReadableTokenAmount, formatUSD, formatTimeAgo } from '../lib/utils'
+import { formatAddress, formatReadableTokenAmount, formatTimeAgo } from '../lib/utils'
 import StackedProgressMeter from './StackedProgressMeter'
 import TokensList from './TokensList'
 

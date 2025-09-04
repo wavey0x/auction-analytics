@@ -1,5 +1,5 @@
 import React from "react";
-import { cn, formatAddress } from "../lib/utils";
+import { cn } from "../lib/utils";
 import InternalLink from "./InternalLink";
 import ExternalAddressLink from "./ExternalAddressLink";
 import { useAddressTag } from "../hooks/useAddressTag";
@@ -7,7 +7,7 @@ import { useAddressTag } from "../hooks/useAddressTag";
 interface AddressLinkProps {
   address: string;
   chainId: number;
-  type?: "auction" | "token" | "address"; // Type determines internal linking
+  type?: "auction" | "token"; // Type determines internal linking (address removed as it's not used internally)
   length?: number;
   className?: string;
   showFullOnHover?: boolean;
@@ -22,7 +22,7 @@ const AddressLink: React.FC<AddressLinkProps> = ({
   showFullOnHover = true,
 }) => {
   const { getDisplayName, getTagInfo } = useAddressTag();
-  const tagInfo = getTagInfo(address);
+  // const tagInfo = getTagInfo(address); // Unused for now
   // Determine internal link based on type
   const getInternalLink = () => {
     switch (type) {

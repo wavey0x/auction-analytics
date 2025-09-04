@@ -1,6 +1,7 @@
-import React, { useEffect, useState, forwardRef } from 'react'
+import { useEffect, useState, forwardRef } from 'react'
 import { motion } from 'framer-motion'
-import { X, ExternalLink } from 'lucide-react'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { ExternalLink, X } from 'lucide-react'
 import { Notification } from '../types/notification'
 import { formatReadableTokenAmount, cn } from '../lib/utils'
 import InternalLink from './InternalLink'

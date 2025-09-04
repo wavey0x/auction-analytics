@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { X, Settings, Tags, Volume2 } from "lucide-react";
+import { X, Settings, Tags } from "lucide-react";
 import { useUserSettings } from "../context/UserSettingsContext";
 import AddressTagManager from "./AddressTagManager";
 
@@ -219,7 +219,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
                       noiseSource.start(now)
                       noiseSource.stop(now + 0.05)
                     } catch (error) {
-                      alert('Audio test failed: ' + error.message)
+                      alert('Audio test failed: ' + (error as Error).message)
                     }
                   }}
                   className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-md transition-colors"

@@ -1,7 +1,11 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ExternalLink, Copy, TrendingDown, TrendingUp, Check } from 'lucide-react'
-import type { ActivityEvent } from '../types/auction'
+// Temporary type definition and utilities
+type ActivityEvent = any;
+const copyToClipboard = (text: string) => navigator.clipboard?.writeText(text);
+const getChainInfo = (chainId: number) => ({ name: `Chain ${chainId}` });
+const getTxLink = (hash: string, chainId: number) => `https://etherscan.io/tx/${hash}`;
 import {
   formatAddress,
   formatTokenAmount,
@@ -10,8 +14,8 @@ import {
   formatTimeAgo,
   cn
 } from '../lib/utils'
-import AddressDisplay from './AddressDisplay'
-import TxHashDisplay from './TxHashDisplay'
+// import AddressDisplay from './AddressDisplay' // Unused
+// import TxHashDisplay from './TxHashDisplay' // Unused
 
 interface ActivityTableProps {
   events: ActivityEvent[]

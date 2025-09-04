@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, Play, Code, FileText, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { FileText, ChevronDown, ChevronRight, Play, Code } from 'lucide-react';
 import CodeBlock from './CodeBlock';
 import ApiTester from './ApiTester';
 

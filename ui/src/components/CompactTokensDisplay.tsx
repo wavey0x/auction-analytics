@@ -40,7 +40,6 @@ const CompactTokensDisplay: React.FC<CompactTokensDisplayProps> = ({
                   token={token}
                   chainId={chainId}
                   className="text-white font-medium hover:text-primary-300"
-                  showSymbolOnly={true}
                 />
               ) : (
                 <span className="text-white font-medium">

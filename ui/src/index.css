@@ -114,6 +114,21 @@
     text-shadow: 0 1px 0 rgba(0,0,0,0.8), 1px 0 0 rgba(0,0,0,0.8), -1px 0 0 rgba(0,0,0,0.8), 0 -1px 0 rgba(0,0,0,0.8);
   }
 
+  /* Tighter, taller brackets for the logo */
+  .logo-bracket {
+    display: inline-block;
+    transform: scaleY(1.52); /* taller */
+    transform-origin: center;
+    line-height: 1; /* avoid clipping */
+    margin: 0 -6px; /* loosen a touch while still tight */
+    letter-spacing: -0.08em; /* counter global letter-spacing so brackets hug text */
+  }
+  .logo-bracket-left { margin-right: -1px; }
+  .logo-bracket-right { margin-left: -1px; }
+
+  /* Ensure no extra spacing inside the title text */
+  .logo-title-text { letter-spacing: 0.02em; }
+
   /* Subtle glow using current text color */
   .glow-text {
     /* Much subtler glow */

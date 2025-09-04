@@ -363,7 +363,7 @@ const Dashboard: React.FC = () => {
             >
               <PulsingDot />
               <span>Active Rounds</span>
-              {activeRounds.length > 0 && (
+              {activeRounds.length !== undefined && activeRounds.length !== null && (
                 <span className={`${
                   activeView === 'active-rounds'
                     ? 'bg-white/20 text-white'
@@ -387,7 +387,7 @@ const Dashboard: React.FC = () => {
             >
               <Activity className="h-4 w-4" />
               <span>Takes</span>
-              {takesCount && takesCount > 0 && (
+              {takesCount !== undefined && takesCount !== null && (
                 <span className={`${
                   activeView === 'takes'
                     ? 'bg-white/20 text-white'
@@ -411,7 +411,7 @@ const Dashboard: React.FC = () => {
             >
               <Gavel className="h-4 w-4" />
               <span>Auctions</span>
-              {auctionsTotal > 0 && (
+              {auctionsTotal !== undefined && auctionsTotal !== null && (
                 <span className={`${
                   activeView === 'all-auctions'
                     ? 'bg-white/20 text-white'

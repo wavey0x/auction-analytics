@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import ChainIcon from "./ChainIcon";
 import { ExternalLink, Copy, Check } from "lucide-react";
 import { formatAddress, getChainInfo, copyToClipboard } from "../lib/utils";

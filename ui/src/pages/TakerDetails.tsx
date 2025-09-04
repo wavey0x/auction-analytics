@@ -50,7 +50,7 @@ const TakerDetails: React.FC = () => {
   })
 
   // Fetch taker token pairs with pagination
-  const { data: tokenPairsResponse, isLoading: tokenPairsLoading } = useQuery({
+  const { data: tokenPairsResponse } = useQuery({
     queryKey: ['takerTokenPairs', address, tokenPairsPage],
     queryFn: () => apiClient.getTakerTokenPairs(address!, { 
       page: tokenPairsPage, 
@@ -245,18 +245,18 @@ const TakerDetails: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <InternalLink
-                      to={`/auction/${take.chain_id}/${take.auction}`}
+                      to={`/auction/${take.chain_id}/${take.auction_address}`}
                       variant="address"
-                      address={take.auction}
+                      address={take.auction_address}
                       chainId={take.chain_id}
                       className="font-mono text-sm"
                     >
-                      {formatAddress(take.auction)}
+                      {formatAddress(take.auction_address)}
                     </InternalLink>
                   </td>
                   <td className="px-4 py-3">
                     <InternalLink
-                      to={`/round/${take.chain_id}/${take.auction}/${take.round_id}`}
+                      to={`/round/${take.chain_id}/${take.auction_address}/${take.round_id}`}
                       variant="round"
                     >
                       R{take.round_id}
@@ -294,7 +294,7 @@ const TakerDetails: React.FC = () => {
                       return (
                         <div className="text-sm text-center">
                           <div className={`font-medium leading-tight ${isProfit ? 'text-green-400' : 'text-red-400'}`}>
-                            {formatUSD(Math.abs(takerPnL), 2)}
+                            {formatUSD(Math.abs(takerPnL))}
                           </div>
                           <div className={`text-xs leading-tight font-medium ${isProfit ? 'text-green-500' : 'text-red-500'}`}>
                             {isProfit ? '+' : '-'}{((Math.abs(takerPnL) / parseFloat((take as any).amount_paid_usd)) * 100).toFixed(2)}%
@@ -366,7 +366,7 @@ const TakerDetails: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-gray-900">
-              {tokenPairsResponse?.token_pairs?.map((tokenPair, index) => (
+              {tokenPairsResponse?.token_pairs?.map((tokenPair) => (
                 <tr key={`${tokenPair.from_token}-${tokenPair.to_token}`} className="group hover:bg-gray-800/50">
                   <td className="px-4 py-3">
                     <div className="flex items-center space-x-1">
@@ -410,7 +410,7 @@ const TakerDetails: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-sm text-gray-400">
-                      {tokenPair.last_take ? formatTimeAgo(tokenPair.last_take) : '—'}
+                      {tokenPair.last_take_at ? formatTimeAgo(tokenPair.last_take_at) : '—'}
                     </span>
                   </td>
                 </tr>
@@ -426,20 +426,7 @@ const TakerDetails: React.FC = () => {
           </table>
         </div>
 
-        {/* Token Pairs Pagination */}
-        {tokenPairsResponse && tokenPairsResponse.total_pages > 1 && (
-          <div className="mt-4 pt-4 border-t border-gray-800">
-            <Pagination
-              currentPage={tokenPairsPage}
-              canGoPrev={tokenPairsPage > 1}
-              canGoNext={tokenPairsPage < tokenPairsResponse.total_pages}
-              onPrev={() => setTokenPairsPage(p => Math.max(1, p - 1))}
-              onNext={() => setTokenPairsPage(p => Math.min(tokenPairsResponse.total_pages, p + 1))}
-              totalPages={tokenPairsResponse.total_pages}
-              summaryText={`${tokenPairsResponse.total_count} total token pairs`}
-            />
-          </div>
-        )}
+        {/* Token Pairs - No pagination (not supported by API) */}
       </div>
     </div>
   )

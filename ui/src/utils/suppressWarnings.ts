@@ -1,6 +1,6 @@
 // Suppress specific noisy dev warnings without changing app behavior
 // Only active in development
-if (import.meta.env.DEV) {
+if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV) {
   const patterns = [
     /React Router Future Flag Warning/i,
     /v7_startTransition/i,

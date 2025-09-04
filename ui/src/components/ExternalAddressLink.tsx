@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { createPortal } from 'react-dom';
 import { ExternalLink, Copy, Check } from "lucide-react";
 import { formatAddress, getChainInfo, cn, copyToClipboard } from "../lib/utils";

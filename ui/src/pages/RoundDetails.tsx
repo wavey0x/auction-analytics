@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { 
@@ -15,13 +15,13 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import TakesTable from '../components/TakesTable'
-import StatsCard from '../components/StatsCard'
+// import StatsCard from '../components/StatsCard' // Unused
 import StackedProgressMeter from '../components/StackedProgressMeter'
 import LoadingSpinner from '../components/LoadingSpinner'
-import AddressDisplay from '../components/AddressDisplay'
+// import AddressDisplay from '../components/AddressDisplay' // Unused
 import BackButton from '../components/BackButton'
 import InternalLink from '../components/InternalLink'
-import RoundLink from '../components/RoundLink'
+// import RoundLink from '../components/RoundLink' // Unused
 import { LiveDataBadge } from '../components/LiveDataBadge'
 import { useAuctionLiveData } from '../hooks/useAuctionLiveData'
 import { formatAddress, formatTokenAmount, formatReadableTokenAmount, formatUSD, formatTimeAgo, getTxLink } from '../lib/utils'
@@ -163,7 +163,7 @@ const RoundDetails: React.FC = () => {
   // Calculate time remaining using round_end timestamp, ensuring it floors to 0
   const timeRemaining = roundInfo.round_end 
     ? Math.max(0, roundInfo.round_end - Math.floor(Date.now() / 1000))
-    : roundInfo.time_remaining || 0
+    : (roundInfo as any)?.time_remaining || 0
   
   // Calculate time progress (0-100%) from round start to round end
   const calculateTimeProgress = () => {
@@ -190,11 +190,11 @@ const RoundDetails: React.FC = () => {
     t.address.toLowerCase() === fromTokenAddress.toLowerCase()
   )?.symbol || fromTokenAddress.slice(0,6) + "…" + fromTokenAddress.slice(-4)
 
-  // Calculate round statistics
-  const totalAmountSold = takes.reduce((sum, sale) => sum + parseFloat(sale.amount_taken), 0)
-  const totalVolume = takes.reduce((sum, sale) => sum + parseFloat(sale.amount_paid), 0)
+  // Calculate round statistics  
+  // const totalAmountSold = takes.reduce((sum, sale) => sum + parseFloat(sale.amount_taken), 0) // Unused
+  // const totalVolume = takes.reduce((sum, sale) => sum + parseFloat(sale.amount_paid), 0) // Unused
   const avgPrice = takes.length > 0 ? takes.reduce((sum, sale) => sum + parseFloat(sale.price), 0) / takes.length : 0
-  const uniqueTakers = new Set(takes.map(sale => sale.taker)).size
+  // const uniqueTakers = new Set(takes.map(sale => sale.taker)).size // Unused
 
   return (
     <div className="space-y-6">
@@ -273,14 +273,14 @@ const RoundDetails: React.FC = () => {
                 <div>
                   <span className="text-sm text-gray-500">Kick Transaction</span>
                   <div className="font-mono text-sm">
-                    {roundInfo.transaction_hash ? (
+                    {(roundInfo as any)?.transaction_hash ? (
                       <a 
-                        href={getTxLink(roundInfo.transaction_hash, parseInt(chainId!))}
+                        href={getTxLink((roundInfo as any).transaction_hash, parseInt(chainId!))}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-white hover:text-primary-300 transition-colors"
                       >
-                        {formatAddress(roundInfo.transaction_hash)}
+                        {formatAddress((roundInfo as any).transaction_hash)}
                       </a>
                     ) : (
                       <span className="text-gray-500">—</span>
@@ -370,14 +370,14 @@ const RoundDetails: React.FC = () => {
                   </div>
                 )}
 
-                {roundInfo.current_price && (
+                {(roundInfo as any)?.current_price && (
                   <div>
                     <span className="text-sm text-gray-500">Current Price</span>
                     <div className="font-mono text-gray-200">
-                      {formatReadableTokenAmount(roundInfo.current_price, 6)}
+                      {formatReadableTokenAmount((roundInfo as any).current_price, 6)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {formatUSD(parseFloat(roundInfo.current_price) * 1.5)}
+                      {formatUSD(parseFloat((roundInfo as any).current_price) * 1.5)}
                     </div>
                   </div>
                 )}

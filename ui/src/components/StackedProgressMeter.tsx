@@ -1,5 +1,5 @@
 import React from 'react'
-import { Clock, TrendingDown } from 'lucide-react'
+// Icons not currently used in JSX but kept for potential future use
 import { CleanProgressBar } from './CleanProgressBar'
 
 interface StackedProgressMeterProps {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Search, Plus, Trash2, Download, Upload, Tag, AlertCircle, CheckCircle, Edit3, X, Check, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useAddressTags } from '../context/AddressTagsContext';
 import { formatAddress, formatTag } from '../lib/utils';

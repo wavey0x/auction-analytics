@@ -272,7 +272,6 @@ const AuctionDetails: React.FC = () => {
                       token={auction.want_token}
                       chainId={auction.chain_id}
                       className="text-white font-medium hover:text-primary-300"
-                      showSymbolOnly={true}
                     />
                   ) : (
                     <span className="text-gray-500">—</span>

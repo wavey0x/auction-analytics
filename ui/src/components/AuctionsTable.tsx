@@ -547,8 +547,7 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredAndSorted.map((auction, index) => {
-                const isActive = auction.current_round?.is_active || false
+              {filteredAndSorted.map((auction) => {
                 const currentRound = auction.current_round
                 
                 return (
@@ -611,7 +610,7 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
                         
                         return (
                           <div className="flex flex-col space-y-1">
-                            {statuses.map((status, index) => {
+                            {statuses.map((status) => {
                               const config = statusConfig[status]
                               return (
                                 <div key={status} className="flex items-center space-x-2">

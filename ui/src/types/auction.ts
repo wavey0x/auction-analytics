@@ -29,6 +29,8 @@ export interface AuctionRoundInfo {
   seconds_elapsed: number;
   total_takes: number;
   progress_percentage?: number;
+  from_token?: string;  // Token address for this round
+  transaction_hash?: string; // Kick transaction hash
 }
 
 export interface AuctionTake {
@@ -94,6 +96,11 @@ export interface AuctionDetails {
   activity: AuctionActivity;
   deployed_at: string;
   last_kicked?: string;
+  // Additional properties from API
+  version?: string;
+  created_at?: string;
+  decay_rate?: number;
+  update_interval?: number;
 }
 
 export interface AuctionRoundHistory {

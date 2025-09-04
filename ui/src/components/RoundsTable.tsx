@@ -1,4 +1,4 @@
-import React from "react";
+// React import not needed in modern setup
 import ChainIcon from "./ChainIcon";
 import InternalLink from "./InternalLink";
 import TokenPairDisplay from "./TokenPairDisplay";
