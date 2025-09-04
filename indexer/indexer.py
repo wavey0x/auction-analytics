@@ -383,6 +383,13 @@ class AuctionIndexer:
         except Exception as e:
             logger.error(f"Error flushing buffers: {e}")
     
+    def _get_network_block_batch_size(self, chain_id: int) -> int:
+        """Get block batch size for a specific network, fallback to 15000"""
+        for network_name, network_config in self.config['networks'].items():
+            if network_config.get('chain_id') == chain_id:
+                return network_config.get('block_batch_size', 15000)
+        return 15000  # Default fallback
+    
     def _get_last_indexed_block(self, chain_id: int, factory_address: str) -> int:
         """Get last indexed block for a specific factory on a chain"""
         try:
@@ -1291,7 +1298,7 @@ class AuctionIndexer:
             return
         
         # Process auctions in batches to avoid RPC query limits
-        BATCH_SIZE = self.config.get('indexer', {}).get('transfer_batch_size', 100)
+        BATCH_SIZE = self.config.get('indexer', {}).get('auction_batch_size', 100)
         for i in range(0, len(auction_addresses), BATCH_SIZE):
             batch = auction_addresses[i:i+BATCH_SIZE]
             try:
@@ -1635,7 +1642,7 @@ class AuctionIndexer:
             return
         
         # Process in batches
-        batch_size = self.config['indexer']['block_batch_size']
+        batch_size = self._get_network_block_batch_size(chain_id)
         from_block = last_indexed_block + 1
         
         total_blocks_to_process = current_block - from_block + 1
