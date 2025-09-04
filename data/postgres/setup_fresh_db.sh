@@ -63,6 +63,11 @@ ALTER TABLE tokens ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP WITH TIME ZONE;
 CREATE TABLE IF NOT EXISTS outbox_events (
     id SERIAL PRIMARY KEY,
     event_type VARCHAR(100) NOT NULL,
+    type VARCHAR(100),
+    chain_id INTEGER,
+    block_number BIGINT,
+    tx_hash VARCHAR(100),
+    log_index INTEGER,
     payload JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     processed BOOLEAN DEFAULT FALSE
@@ -72,6 +77,7 @@ CREATE TABLE IF NOT EXISTS price_requests (
     id SERIAL PRIMARY KEY,
     token_address VARCHAR(100) NOT NULL,
     chain_id INTEGER NOT NULL,
+    block_number BIGINT,
     requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     processed BOOLEAN DEFAULT FALSE,
     priority INTEGER DEFAULT 1
