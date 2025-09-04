@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import { rpcHealthMonitor } from '../lib/rpcHealthMonitor'
-import { ChainIcon } from '../components/ChainIcon'
+import ChainIcon from '../components/ChainIcon'
 
 type ServiceItem = {
   name: string
@@ -45,7 +45,7 @@ const ServiceRow: React.FC<{ service: ServiceItem }> = ({ service }) => {
         <div className="flex items-center gap-3">
           {!isExpanded && hasMetrics && (
             <div className="text-xs text-gray-400 flex items-center gap-3">
-              {Object.entries(service.metrics).slice(0, 4).map(([k, v]) => (
+              {Object.entries(service.metrics || {}).slice(0, 4).map(([k, v]) => (
                 <span key={k} className="font-mono">
                   {k}:{' '}
                   {typeof v === 'object' ? '-' : String(v)}
@@ -65,7 +65,7 @@ const ServiceRow: React.FC<{ service: ServiceItem }> = ({ service }) => {
         <div className="px-6 pb-3">
           <div className="text-xs text-gray-500 mb-2">All Metrics</div>
           <div className="grid grid-cols-2 gap-2">
-            {Object.entries(service.metrics).map(([k, v]) => (
+            {Object.entries(service.metrics || {}).map(([k, v]) => (
               <div key={k} className="bg-gray-800/30 p-2 rounded text-xs">
                 <div className="text-gray-400 capitalize">{k.replace(/_/g, ' ')}</div>
                 <div className="text-gray-200 font-mono">
@@ -152,7 +152,7 @@ const StatusPage: React.FC = () => {
           {showRpcDetails && rpcHealth.chains.length > 0 && (
             <div className="px-6 pb-3 space-y-2">
               <div className="text-xs text-gray-500 mb-2">Chain Details</div>
-              {rpcHealth.chains.map((chain) => (
+              {(rpcHealth.chains || []).map((chain) => (
                 <div key={chain.chainId} className="bg-gray-800/30 p-3 rounded">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">

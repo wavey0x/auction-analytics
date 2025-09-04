@@ -1872,10 +1872,22 @@ def main():
     
     args = parser.parse_args()
     
-    # Parse networks
+    # Parse networks - prioritize CLI argument, then environment variable
     networks = None
     if args.network:
         networks = [n.strip() for n in args.network.split(',')]
+    elif 'NETWORKS_ENABLED' in os.environ:
+        networks_enabled = os.environ['NETWORKS_ENABLED'].strip()
+        if networks_enabled:
+            networks = [n.strip() for n in networks_enabled.split(',')]
+            logger.info(f"Using networks from NETWORKS_ENABLED: {networks}")
+    
+    # Filter out 'local' network in production to prevent Anvil processing
+    if networks and 'local' in networks:
+        app_mode = os.environ.get('APP_MODE', 'dev')
+        if app_mode == 'prod':
+            networks.remove('local')
+            logger.warning(f"⚠️  Removed 'local' network in production mode - filtered networks: {networks}")
     
     # Create indexer
     try:
