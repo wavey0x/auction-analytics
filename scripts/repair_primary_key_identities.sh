@@ -35,9 +35,9 @@ fi
 echo "[repair_pk_identities] Using URL=${TARGET_URL%%\?*}"
 echo "[repair_pk_identities] Schema: $SCHEMA"
 
-"$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 <<SQL
-SET search_path TO "$SCHEMA", pg_catalog;
-DO $$
+"$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 -v SCHEMA="$SCHEMA" <<'SQL'
+SET search_path TO :SCHEMA, pg_catalog;
+DO $do$
 DECLARE
   r record;
   seq_name text;
@@ -118,16 +118,16 @@ BEGIN
     RAISE NOTICE 'Added identity to %.%.% (seq: %) [id fallback]',
       r.table_schema, r.table_name, r.column_name, seq_name;
   END LOOP;
-END $$;
+END $do$;
 SQL
 
 echo "[repair_pk_identities] Completed."
 
 if [[ "$DROP_NN" == "yes" ]]; then
   echo "[repair_pk_identities] Dropping NOT NULL where no defaults exist (non-PK, non-identity) in schema '$SCHEMA'..."
-  "$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 <<SQL
-SET search_path TO "$SCHEMA", pg_catalog;
-DO $$
+  "$PSQL_BIN" "$TARGET_URL" -v ON_ERROR_STOP=1 -v SCHEMA="$SCHEMA" <<'SQL'
+SET search_path TO :SCHEMA, pg_catalog;
+DO $do$
 DECLARE
   r record;
 BEGIN
@@ -154,7 +154,7 @@ BEGIN
                    r.table_schema, r.table_name, r.column_name);
     RAISE NOTICE 'Dropped NOT NULL on %.%.%', r.table_schema, r.table_name, r.column_name;
   END LOOP;
-END $$;
+END $do$;
 SQL
   echo "[repair_pk_identities] NOT NULL drops completed."
 fi

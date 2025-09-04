@@ -583,60 +583,61 @@ class AuctionIndexer:
                         starting_price, governance_address
                     ))
                 
-                # Publish deploy event to outbox
-                try:
-                    self.event_publisher.insert_outbox_event(
-                        cursor=cursor,
-                        event_type='deploy',
-                        chain_id=chain_id,
-                        block_number=event['blockNumber'],
-                        tx_hash=self._normalize_transaction_hash(event['transactionHash']),
-                        log_index=event['logIndex'],
-                        auction_address=auction_address,
-                        timestamp=timestamp,
-                        payload={
-                            'deployer': deployer,
-                            'version': '0.1.0' if factory_type == 'modern' else '0.0.1',
-                            'want_token': want_token,
-                            'factory_address': factory_address,
-                            'update_interval': price_update_interval,
-                            'decay_rate': float(decay_rate),
-                            'auction_length': auction_length,
-                            'starting_price': float(starting_price),
-                            'governance': governance_address
-                        },
-                        want_token=want_token
-                    )
-                except Exception as pub_error:
-                    logger.warning(f"Failed to publish deploy event: {pub_error}")
-                
+                # Publish deploy event to outbox and related DB writes
+                with self.db_conn.cursor() as cursor:
+                    try:
+                        self.event_publisher.insert_outbox_event(
+                            cursor=cursor,
+                            event_type='deploy',
+                            chain_id=chain_id,
+                            block_number=event['blockNumber'],
+                            tx_hash=self._normalize_transaction_hash(event['transactionHash']),
+                            log_index=event['logIndex'],
+                            auction_address=auction_address,
+                            timestamp=timestamp,
+                            payload={
+                                'deployer': deployer,
+                                'version': '0.1.0' if factory_type == 'modern' else '0.0.1',
+                                'want_token': want_token,
+                                'factory_address': factory_address,
+                                'update_interval': price_update_interval,
+                                'decay_rate': float(decay_rate),
+                                'auction_length': auction_length,
+                                'starting_price': float(starting_price),
+                                'governance': governance_address
+                            },
+                            want_token=want_token
+                        )
+                    except Exception as pub_error:
+                        logger.warning(f"Failed to publish deploy event: {pub_error}")
+                    
+                    # Pre-populate enabled tokens from contract to avoid race conditions
+                    enabled_tokens = self._get_enabled_tokens_from_contract(auction_address, chain_id)
+                    if enabled_tokens:
+                        logger.debug(f"Pre-populated {len(enabled_tokens)} enabled tokens for new auction {auction_address[:5]}..{auction_address[-4:]}")
+                        
+                        # Also populate database for UI/API use
+                        for token_address in enabled_tokens:
+                            try:
+                                self._discover_and_store_token(token_address, chain_id)
+                                cursor.execute("""
+                                    INSERT INTO enabled_tokens (
+                                        auction_address, chain_id, token_address, 
+                                        enabled_at, enabled_at_block, enabled_at_tx_hash
+                                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                                    ON CONFLICT (auction_address, chain_id, token_address) DO NOTHING
+                                """, (
+                                    auction_address, chain_id, token_address,
+                                    timestamp, event['blockNumber'], 
+                                    self._normalize_transaction_hash(event['transactionHash'])
+                                ))
+                            except Exception as token_error:
+                                logger.debug(f"Failed to populate enabled token {token_address}: {token_error}")
+
                 # Add to tracked auctions
                 if chain_id not in self.tracked_auctions:
                     self.tracked_auctions[chain_id] = {}
                 self.tracked_auctions[chain_id][auction_address] = auction_contract
-                
-                # Pre-populate enabled tokens from contract to avoid race conditions
-                enabled_tokens = self._get_enabled_tokens_from_contract(auction_address, chain_id)
-                if enabled_tokens:
-                    logger.debug(f"Pre-populated {len(enabled_tokens)} enabled tokens for new auction {auction_address[:5]}..{auction_address[-4:]}")
-                    
-                    # Also populate database for UI/API use
-                    for token_address in enabled_tokens:
-                        try:
-                            self._discover_and_store_token(token_address, chain_id)
-                            cursor.execute("""
-                                INSERT INTO enabled_tokens (
-                                    auction_address, chain_id, token_address, 
-                                    enabled_at, enabled_at_block, enabled_at_tx_hash
-                                ) VALUES (%s, %s, %s, %s, %s, %s)
-                                ON CONFLICT (auction_address, chain_id, token_address) DO NOTHING
-                            """, (
-                                auction_address, chain_id, token_address,
-                                timestamp, event['blockNumber'], 
-                                self._normalize_transaction_hash(event['transactionHash'])
-                            ))
-                        except Exception as token_error:
-                            logger.debug(f"Failed to populate enabled token {token_address}: {token_error}")
                 
                 logger.info(f"[{event['blockNumber']}] 🚀 Auction deployed: {auction_address[:5]}..{auction_address[-4:]} on chain {chain_id} from factory {factory_address[:5]}..{factory_address[-4:]}")
                 

@@ -435,7 +435,7 @@ const Dashboard: React.FC = () => {
             >
               <Users className="h-4 w-4" />
               <span>Takers</span>
-              {takersTotal && takersTotal > 0 && (
+              {takersTotal !== undefined && takersTotal !== null && (
                 <span className={`${
                   activeView === 'takers'
                     ? 'bg-white/20 text-white'

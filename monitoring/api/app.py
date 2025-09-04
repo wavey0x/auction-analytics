@@ -198,6 +198,9 @@ async def get_auction_details(
         return result
     except Exception as e:
         logger.error(f"Error fetching auction details: {e}")
+        # Return 404 when the auction is not found in the database
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Auction not found")
         raise HTTPException(status_code=500, detail="Failed to fetch auction details")
 
 @app.get("/auctions/{chain_id}/{auction_address}/takes")
@@ -215,6 +218,9 @@ async def get_auction_takes(
         return result
     except Exception as e:
         logger.error(f"Error fetching auction takes: {e}")
+        # If upstream indicates auction not found, reflect as 404 for clarity
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Auction not found")
         raise HTTPException(status_code=500, detail="Failed to fetch auction takes")
 
 @app.get("/auctions/{chain_id}/{auction_address}/rounds")
