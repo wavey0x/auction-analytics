@@ -2,8 +2,14 @@
 -- This schema supports the Auction → AuctionRound → AuctionSale structure
 -- Works WITH Rindexer's automatic table generation for blockchain events
 
--- Enable TimescaleDB extension for time-series data
-CREATE EXTENSION IF NOT EXISTS timescaledb;
+-- Enable TimescaleDB extension for time-series data (optional)
+DO $$ 
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS timescaledb;
+EXCEPTION 
+    WHEN others THEN
+        RAISE NOTICE 'TimescaleDB extension not available, continuing without time-series optimization';
+END $$;
 
 -- ============================================================================
 -- TOKEN METADATA CACHE
@@ -152,8 +158,15 @@ CREATE INDEX idx_takes_round ON takes (auction_address, chain_id, round_id);
 CREATE INDEX idx_takes_taker ON takes (taker);
 CREATE INDEX idx_takes_tx_hash ON takes (transaction_hash);
 
--- Make takes a hypertable for time-series optimization
-SELECT create_hypertable('takes', 'timestamp', if_not_exists => TRUE);
+-- Make takes a hypertable for time-series optimization (optional)
+DO $$
+BEGIN
+    PERFORM create_hypertable('takes', 'timestamp', if_not_exists => TRUE);
+    RAISE NOTICE 'TimescaleDB hypertable created for takes table';
+EXCEPTION 
+    WHEN others THEN
+        RAISE NOTICE 'TimescaleDB not available, takes table will use regular PostgreSQL storage';
+END $$;
 
 -- ============================================================================
 -- INDEXER STATE TRACKING
