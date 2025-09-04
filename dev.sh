@@ -692,10 +692,10 @@ setup_tmux() {
 start_api() {
     if [ "$USE_MOCK_DATA" = true ]; then
         step "Starting API service (mock mode)..."
-        local cmd="source '$SCRIPT_DIR/venv/bin/activate' && cd '$SCRIPT_DIR/monitoring/api' && python3 app.py --mock"
+        local cmd="source '$SCRIPT_DIR/venv/bin/activate' && cd '$SCRIPT_DIR' && PYTHONPATH=. python3 monitoring/api/app.py --mock"
     else
         step "Starting API service (database mode)..."
-        local cmd="source '$SCRIPT_DIR/venv/bin/activate' && cd '$SCRIPT_DIR/monitoring/api' && python3 app.py"
+        local cmd="source '$SCRIPT_DIR/venv/bin/activate' && cd '$SCRIPT_DIR' && PYTHONPATH=. python3 monitoring/api/app.py"
     fi
     local log_file="$LOG_DIR/api_$(date +%Y%m%d_%H%M%S).log"
     

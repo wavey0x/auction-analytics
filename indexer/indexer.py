@@ -77,13 +77,41 @@ class AuctionIndexer:
         """Load and expand environment variables in config"""
         with open(config_path, 'r') as f:
             config_content = f.read()
-            
-        # Expand environment variables
-        import os
+        
+        # Map mode-specific environment variables to generic ones
+        app_mode = os.environ.get('APP_MODE', 'dev')
+        mode_prefix = f"{app_mode.upper()}_" if app_mode != 'dev' else 'DEV_'
+        
+        # Create mapping for environment variable substitution
+        network_mappings = {
+            'ETHEREUM_RPC_URL': f'{mode_prefix}ETHEREUM_RPC_URL',
+            'POLYGON_RPC_URL': f'{mode_prefix}POLYGON_RPC_URL', 
+            'ARBITRUM_RPC_URL': f'{mode_prefix}ARBITRUM_RPC_URL',
+            'OPTIMISM_RPC_URL': f'{mode_prefix}OPTIMISM_RPC_URL',
+            'BASE_RPC_URL': f'{mode_prefix}BASE_RPC_URL',
+            'ETHEREUM_FACTORY_ADDRESS': f'{mode_prefix}ETHEREUM_FACTORY_ADDRESS',
+            'POLYGON_FACTORY_ADDRESS': f'{mode_prefix}POLYGON_FACTORY_ADDRESS',
+            'ARBITRUM_FACTORY_ADDRESS': f'{mode_prefix}ARBITRUM_FACTORY_ADDRESS', 
+            'OPTIMISM_FACTORY_ADDRESS': f'{mode_prefix}OPTIMISM_FACTORY_ADDRESS',
+            'BASE_FACTORY_ADDRESS': f'{mode_prefix}BASE_FACTORY_ADDRESS',
+            'ETHEREUM_START_BLOCK': f'{mode_prefix}ETHEREUM_START_BLOCK',
+            'POLYGON_START_BLOCK': f'{mode_prefix}POLYGON_START_BLOCK',
+            'ARBITRUM_START_BLOCK': f'{mode_prefix}ARBITRUM_START_BLOCK',
+            'OPTIMISM_START_BLOCK': f'{mode_prefix}OPTIMISM_START_BLOCK', 
+            'BASE_START_BLOCK': f'{mode_prefix}BASE_START_BLOCK',
+        }
+        
+        # Set temporary environment variables for config expansion
+        for generic_var, mode_specific_var in network_mappings.items():
+            if mode_specific_var in os.environ and generic_var not in os.environ:
+                os.environ[generic_var] = os.environ[mode_specific_var]
+                logger.debug(f"Mapped {mode_specific_var} -> {generic_var}")
+        
+        # Expand environment variables  
         config_content = os.path.expandvars(config_content)
         
         config = yaml.safe_load(config_content)
-        logger.info(f"Loaded configuration for {len(config['networks'])} networks")
+        logger.info(f"Loaded configuration for {len(config['networks'])} networks (APP_MODE={app_mode})")
         return config
     
     def _load_abis(self) -> None:
