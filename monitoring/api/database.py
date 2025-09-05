@@ -599,8 +599,11 @@ class DatabaseQueries:
 
             # total_volume_usd, with optional time window
             volume_usd_sql = "0"
-            if ('vw_takes_enriched' in existing_tables or 'vw_takes' in existing_tables) and 'auctions' in existing_tables:
-                view_name = 'vw_takes_enriched' if 'vw_takes_enriched' in existing_tables else 'vw_takes'
+            if ('mv_takes_enriched' in existing_tables or 'vw_takes_enriched' in existing_tables or 'vw_takes' in existing_tables) and 'auctions' in existing_tables:
+                if 'mv_takes_enriched' in existing_tables:
+                    view_name = 'mv_takes_enriched'
+                else:
+                    view_name = 'vw_takes_enriched' if 'vw_takes_enriched' in existing_tables else 'vw_takes'
                 days = int(os.getenv('STATS_VOLUME_DAYS', os.getenv('DEV_STATS_VOLUME_DAYS', '7')))
                 time_filter = ""
                 if days and days > 0:
@@ -882,6 +885,7 @@ class DatabaseQueries:
             taker_data = None
         
         if not taker_data:
+            enriched = await DatabaseQueries._get_enriched_takes_relation(db)
             # Fallback: compute directly from vw_takes_enriched if MV empty/not populated
             fb_query = text("""
                 WITH base AS (
@@ -903,7 +907,7 @@ class DatabaseQueries:
                         COUNT(*) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days') AS takes_last_30d,
                         COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '7 days'), 0) AS volume_last_7d,
                         COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days'), 0) AS volume_last_30d
-                    FROM vw_takes_enriched t
+                    FROM {enriched} t
                     WHERE LOWER(t.taker) = LOWER(:taker)
                     GROUP BY LOWER(t.taker)
                 )
@@ -966,8 +970,8 @@ class DatabaseQueries:
     async def get_taker_takes(db: AsyncSession, taker_address: str, limit: int, page: int):
         """Get paginated takes for a taker using enriched view"""
         offset = (page - 1) * limit
-        
-        query = text("""
+        enriched = await DatabaseQueries._get_enriched_takes_relation(db)
+        query = text(f"""
             SELECT 
                 take_id,
                 auction_address,
@@ -996,7 +1000,7 @@ class DatabaseQueries:
                 to_token_symbol,
                 to_token_name,
                 to_token_decimals
-            FROM vw_takes_enriched
+            FROM {enriched}
             WHERE LOWER(taker) = LOWER(:taker)
             ORDER BY timestamp DESC
             LIMIT :limit OFFSET :offset
@@ -1007,7 +1011,7 @@ class DatabaseQueries:
         
         # Get total count
         count_result = await db.execute(
-            text("SELECT COUNT(*) FROM vw_takes_enriched WHERE LOWER(taker) = LOWER(:taker)"),
+            text("SELECT COUNT(*) FROM takes WHERE LOWER(taker) = LOWER(:taker)"),
             {"taker": taker_address}
         )
         total = int(count_result.scalar() or 0)
