@@ -45,6 +45,8 @@ import ChainIcon from "../components/ChainIcon";
 import type { AuctionTake } from "../types/auction";
 import { useUserSettings } from "../context/UserSettingsContext";
 import { getAuctionLiveData, type AuctionCall } from "../lib/multicall";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { getResponsiveSpacing, getResponsiveText } from "../utils/mobile";
 
 type ViewType = 'active-rounds' | 'takes' | 'takers' | 'all-auctions';
 
@@ -326,11 +328,14 @@ const Dashboard: React.FC = () => {
   const totalVolumeUSD = systemStats?.total_volume_usd || 0;
 
   const chainInfo = getChainInfo(31337); // Using Anvil chain
+  const isMobile = useIsMobile();
+  const spacing = getResponsiveSpacing(isMobile);
+  const textSize = getResponsiveText(isMobile);
 
   return (
-    <div className="space-y-10">
+    <div className={isMobile ? "space-y-6" : "space-y-10"}>
       {/* Stats Overview */}
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className={`flex flex-wrap justify-center ${isMobile ? 'gap-2' : 'gap-3'}`}>
         <StatsCard
           title="Auctions"
           value={systemStats?.total_auctions || 0}
@@ -352,8 +357,8 @@ const Dashboard: React.FC = () => {
 
       {/* Floating Button Group */}
       <div className="relative">
-        <div className="flex justify-center mb-6 px-1 sm:px-0">
-          <div className="grid grid-cols-2 sm:inline-flex gap-1 sm:gap-0 rounded-lg bg-gray-800/50 p-1 backdrop-blur-sm border border-gray-700/50 w-full sm:w-auto max-w-lg sm:max-w-none">
+        <div className={`flex justify-center ${spacing.section} ${spacing.container}`}>
+          <div className={`${isMobile ? 'grid grid-cols-2' : 'inline-flex'} gap-1 rounded-lg bg-gray-800/50 p-1 backdrop-blur-sm border border-gray-700/50 ${isMobile ? 'w-full max-w-lg' : 'w-auto'}`}>
             <button type="button"
               onClick={() => setActiveView('active-rounds')}
               className={`${
