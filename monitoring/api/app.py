@@ -880,6 +880,14 @@ async def event_stream(
             except Exception:
                 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
             stream_key = os.getenv('REDIS_STREAM_KEY', 'events')
+            # Log target (mask credentials)
+            try:
+                safe_url = redis_url
+                if '@' in safe_url:
+                    safe_url = safe_url.replace(safe_url.split('://',1)[1].split('@',1)[0], '***')
+                logger.info(f"SSE: Connecting to Redis {safe_url}, stream={stream_key}")
+            except Exception:
+                pass
             use_async = aioredis is not None
             if use_async:
                 redis_client = aioredis.from_url(
@@ -888,7 +896,7 @@ async def event_stream(
                     socket_connect_timeout=5,
                     socket_timeout=10,
                 )
-                await redis_client.ping()
+                # Avoid requiring +ping; subsequent reads will validate connection
             else:
                 # Fallback to synchronous client, we will run blocking calls in a thread
                 redis_client = redis.from_url(
@@ -899,8 +907,7 @@ async def event_stream(
                     socket_keepalive=True,
                     socket_keepalive_options={}
                 )
-                # Probe connection without blocking the event loop
-                await asyncio.to_thread(redis_client.ping)
+                # Avoid requiring +ping; XREAD/XRANGE below will validate connection
             logger.info("SSE: Redis connected successfully")
             
             # Send recent unseen events that aren't too old
@@ -958,6 +965,12 @@ async def event_stream(
                                         processed_data['payload_json'] = json.loads(processed_data['payload_json'])
                                 
                                 event_data = json.dumps(processed_data)
+                                # Debug visibility: log forwarding
+                                try:
+                                    evt_type = processed_data.get('type')
+                                    logger.info(f"SSE: Forwarding {message_id} type={evt_type}")
+                                except Exception:
+                                    pass
                                 yield f"id: {message_id}\n"
                                 yield f"data: {event_data}\n\n"
                                 await asyncio.sleep(0.1)  # Small delay between events
@@ -990,6 +1003,12 @@ async def event_stream(
                                             processed_data['payload_json'] = json.loads(processed_data['payload_json'])
                                     
                                     event_data = json.dumps(processed_data)
+                                    # Debug visibility: log forwarding
+                                    try:
+                                        evt_type = processed_data.get('type')
+                                        logger.info(f"SSE: Forwarding {message_id} type={evt_type}")
+                                    except Exception:
+                                        pass
                                     yield f"id: {message_id}\n"
                                     yield f"data: {event_data}\n\n"
                                     
