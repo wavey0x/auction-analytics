@@ -338,8 +338,7 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [], forceTable
                 <SortIcon field="address" />
               </div>
             </th>
-            <th className="text-center">Round</th>
-            <th className="text-center">Tokens</th>
+            <th className="text-center max-w-[220px]">Tokens</th>
             <th 
               className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
               onClick={() => handleSort('status')}
@@ -402,20 +401,7 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [], forceTable
                   />
                 </td>
                 
-                <td>
-                  {currentRound ? (
-                    <InternalLink
-                      to={`/round/${auction?.chain_id}/${auction?.address}/${currentRound?.round_id}`}
-                      variant="round"
-                    >
-                      R{currentRound.round_id}
-                    </InternalLink>
-                  ) : (
-                    <span className="text-gray-500 text-sm">—</span>
-                  )}
-                </td>
-                
-                <td>
+                <td className="max-w-[220px]">
                   <TokenPairDisplay
                     fromToken={
                       <TokensList 
@@ -481,17 +467,30 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [], forceTable
                   </div>
                 </td>
                 
-                <td>
-                  {auction?.last_kicked ? (
-                    <span 
-                      className="text-sm text-gray-400"
-                      title={new Date(auction.last_kicked).toLocaleString()}
-                    >
-                      {formatTimeAgo(new Date(auction.last_kicked!).getTime() / 1000)}
-                    </span>
-                  ) : (
-                    <span className="text-gray-500 text-sm">—</span>
-                  )}
+                <td className="text-center">
+                  <div className="flex flex-col items-center space-y-1">
+                    {currentRound ? (
+                      <InternalLink
+                        to={`/round/${auction?.chain_id}/${auction?.address}/${currentRound?.round_id}`}
+                        variant="round"
+                        showArrow={false}
+                      >
+                        R{currentRound.round_id}
+                      </InternalLink>
+                    ) : (
+                      <span className="text-gray-500 text-sm">—</span>
+                    )}
+                    {auction?.last_kicked ? (
+                      <span 
+                        className="text-xs text-gray-500"
+                        title={new Date(auction.last_kicked).toLocaleString()}
+                      >
+                        {formatTimeAgo(new Date(auction.last_kicked!).getTime() / 1000)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 text-xs">—</span>
+                    )}
+                  </div>
                 </td>
               </tr>
             )

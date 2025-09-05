@@ -32,7 +32,7 @@ const TakerLink: React.FC<TakerLinkProps> = ({
     <span className="inline-flex items-center space-x-1">
       <InternalLink
         to={`/taker/${takerAddress}`}
-        variant="address"
+        variant="taker"
         address={takerAddress}
         chainId={chainId}
         className={className}

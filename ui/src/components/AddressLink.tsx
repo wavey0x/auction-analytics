@@ -50,7 +50,7 @@ const AddressLink: React.FC<AddressLinkProps> = ({
       {internalLink ? (
         <InternalLink
           to={internalLink}
-          variant="address"
+          variant={type === "auction" ? "auction" : "address"}
           className="select-all"
           address={address}
           chainId={chainId}

@@ -34,7 +34,8 @@ export interface TakeDetail {
   to_token_symbol?: string
   amount_taken: string
   amount_paid: string
-  price: string
+  from_token_price_usd?: number
+  want_token_price_usd?: number
   
   // Transaction details
   tx_hash: string

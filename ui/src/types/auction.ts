@@ -31,6 +31,9 @@ export interface AuctionRoundInfo {
   progress_percentage?: number;
   from_token?: Token; // Full token object for this round
   transaction_hash?: string; // Kick transaction hash
+  block_number?: number;
+  from_token_price_usd?: string; // USD price of the from_token
+  want_token_price_usd?: string; // USD price of the want_token
 }
 
 export interface AuctionTake {

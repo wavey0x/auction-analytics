@@ -243,7 +243,7 @@ const RoundDetails: React.FC = () => {
         <div className="flex items-center space-x-4">
           <BackButton />
 
-          <h1 className="text-2xl font-bold text-gray-100">Round R{roundId}</h1>
+          <h1 className="text-2xl font-bold text-gray-100">Round {roundId}</h1>
         </div>
       </div>
 
@@ -278,7 +278,7 @@ const RoundDetails: React.FC = () => {
                 <div>
                   <span className="text-sm text-gray-500">Round ID</span>
                   <div className="font-mono text-sm text-white">
-                    R{roundInfo.round_id}
+                    {roundInfo.round_id}
                   </div>
                 </div>
 
@@ -573,7 +573,7 @@ const RoundDetails: React.FC = () => {
       {takes.length > 0 ? (
         <TakesTable
           takes={takes}
-          title={`Takes in Round R${roundId}`}
+          title={`Takes in Round ${roundId}`}
           tokens={tokens?.tokens || []}
           maxHeight="max-h-[600px]"
           hideAuctionColumn={true}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import InternalLink from "../components/InternalLink";
 import RoundLink from "../components/RoundLink";
+import RoundTakeDisplay from "../components/RoundTakeDisplay";
 import { useQuery } from "@tanstack/react-query";
 import {
   Home,
@@ -201,12 +202,8 @@ const Dashboard: React.FC = () => {
         const fromTokenAddress = currentRound?.from_token || auction.from_tokens?.[0]?.address;
         
         if (fromTokenAddress) {
-          auctionsByChain[auction.chain_id].push(
-            {
-              auctionAddress: auction.address as any,
-              fromToken: fromTokenAddress as any,
-              call: 'available'
-            },
+          // Only call getAmountNeeded since API provides available_amount
+        auctionsByChain[auction.chain_id].push(
             {
               auctionAddress: auction.address as any,
               fromToken: fromTokenAddress as any,
@@ -569,25 +566,35 @@ const Dashboard: React.FC = () => {
                                 if (currentPrice !== undefined && currentPrice !== null) {
                                   // Format the live price data (including 0 values)
                                   const priceValue = Number(currentPrice) / Math.pow(10, 18);
+                                  
+                                  // Calculate USD value using want_token_price_usd from API
+                                  const usdValue = round.want_token_price_usd 
+                                    ? priceValue * parseFloat(round.want_token_price_usd)
+                                    : null;
+                                  
                                   return (
                                     <div className="text-xs sm:text-sm">
                                       <div className="font-mono text-gray-200">
                                         {formatReadableTokenAmount(priceValue.toString(), 3)}
                                       </div>
                                       <div className="text-xs text-gray-500">
-                                        {formatUSD(priceValue * 1.5)}
+                                        {usdValue ? formatUSD(usdValue) : '—'}
                                       </div>
                                     </div>
                                   );
                                 } else if (round.current_price) {
                                   // Fallback to database price if available
+                                  const usdValue = round.want_token_price_usd 
+                                    ? parseFloat(round.current_price) * parseFloat(round.want_token_price_usd)
+                                    : null;
+                                    
                                   return (
                                     <div className="text-xs sm:text-sm">
                                       <div className="font-mono text-gray-200">
                                         {formatReadableTokenAmount(round.current_price, 3)}
                                       </div>
                                       <div className="text-xs text-gray-500">
-                                        {formatUSD(parseFloat(round.current_price) * 1.5)}
+                                        {usdValue ? formatUSD(usdValue) : '—'}
                                       </div>
                                     </div>
                                   );
@@ -599,13 +606,8 @@ const Dashboard: React.FC = () => {
 
                             <td className={`min-w-[80px] ${spacing.tableCell} text-center`}>
                               {(() => {
-                                const auctionLiveData = liveData?.[round.auction];
-                                const availableAmount = auctionLiveData?.available;
-                                
-                                if (availableAmount !== undefined && availableAmount !== null) {
-                                  // Format the live available data (including 0 values)
-                                  const availableValue = Number(availableAmount) / Math.pow(10, 18);
-                                  
+                                // Use API-provided available_amount (already in human-readable format)
+                                if (round.available_amount) {
                                   // Get the correct token symbol for this round
                                   const tokenSymbol = (() => {
                                     // Use the from_token object directly if it exists (new API structure)
@@ -625,36 +627,7 @@ const Dashboard: React.FC = () => {
                                   return (
                                     <div className="text-xs sm:text-sm">
                                       <div className="font-mono text-gray-200">
-                                        {formatTokenAmount(availableValue.toString(), 0, 2)}
-                                      </div>
-                                      <div className="text-xs text-gray-500">
-                                        {tokenSymbol}
-                                      </div>
-                                    </div>
-                                  );
-                                } else if (round.available_amount) {
-                                  // Fallback to database amount if available
-                                  
-                                  // Get the correct token symbol for this round
-                                  const tokenSymbol = (() => {
-                                    // Use the from_token object directly if it exists (new API structure)
-                                    if (round.from_token && typeof round.from_token === 'object' && 'symbol' in round.from_token) {
-                                      return round.from_token.symbol;
-                                    }
-                                    // Legacy fallback: find token by address if from_token is a string
-                                    if (round.from_token && typeof round.from_token === 'string' && round.from_tokens) {
-                                      const specificToken = round.from_tokens.find(t => 
-                                        t.address.toLowerCase() === round.from_token.toLowerCase()
-                                      );
-                                      return specificToken?.symbol;
-                                    }
-                                    return "Token";
-                                  })();
-                                  
-                                  return (
-                                    <div className="text-sm">
-                                      <div className="font-mono text-gray-200">
-                                        {formatTokenAmount(round.available_amount, 18, 2)}
+                                        {formatReadableTokenAmount(round.available_amount, 2)}
                                       </div>
                                       <div className="text-xs text-gray-500">
                                         {tokenSymbol}
@@ -757,7 +730,7 @@ const Dashboard: React.FC = () => {
                         <tr>
                           <th className="border-b border-gray-700 px-0 py-1.5 text-center text-xs font-medium text-gray-400 uppercase tracking-wider w-[22px] min-w-[22px] max-w-[22px]"><span className="sr-only">Chain</span></th>
                           <th className="border-b border-gray-700 px-3 py-1.5 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Auction</th>
-                          <th className="border-b border-gray-700 px-3 py-1.5 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Round</th>
+                          <th className="border-b border-gray-700 px-3 py-1.5 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Round | Take</th>
                           <th className="border-b border-gray-700 px-3 py-1.5 text-center text-xs font-medium text-gray-400 uppercase tracking-wider w-28 md:w-36">Tokens</th>
                           <th 
                             className="border-b border-gray-700 px-2 py-1.5 text-center text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50 transition-colors w-24 md:w-28"
@@ -803,10 +776,12 @@ const Dashboard: React.FC = () => {
 
                             <td className="border-b border-gray-800 px-3 py-1.5 text-sm text-gray-300">
                               <div className="flex justify-center">
-                                <RoundLink
+                                <RoundTakeDisplay
                                   chainId={take.chain_id}
                                   auctionAddress={take.auction}
                                   roundId={take.round_id}
+                                  takeSeq={take.take_seq}
+                                  size="sm"
                                 />
                               </div>
                             </td>

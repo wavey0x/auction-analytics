@@ -6,6 +6,8 @@ interface RoundLinkProps {
   auctionAddress: string;
   roundId: number | string;
   className?: string;
+  size?: 'sm' | 'md' | 'lg';
+  showArrow?: boolean;
 }
 
 /**
@@ -17,12 +19,21 @@ const RoundLink: React.FC<RoundLinkProps> = ({
   auctionAddress,
   roundId,
   className = '',
+  size = 'sm',
+  showArrow = true,
 }) => {
+  const sizeClasses = {
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-base'
+  };
+
   return (
     <InternalLink
       to={`/round/${chainId}/${auctionAddress}/${roundId}`}
       variant="round"
-      className={`font-mono text-sm ${className}`}
+      showArrow={showArrow}
+      className={`font-mono ${sizeClasses[size]} ${className}`}
     >
       R{roundId}
     </InternalLink>

@@ -53,7 +53,6 @@ def get_mock_auctions() -> List[AuctionListItem]:
                 time_remaining=3600 - (i * 300),
                 seconds_elapsed=i * 300,
                 total_takes=i % 3 + 1,
-                progress_percentage=(i * 10) % 80
             )
         
         auction = AuctionListItem(
@@ -135,7 +134,6 @@ async def get_auction(auction: str):
         time_remaining=2700,
         seconds_elapsed=2700,
         total_takes=5,
-        progress_percentage=25.0
     )
     
     # Mock recent takes
@@ -206,7 +204,6 @@ async def get_auction_rounds(
             time_remaining=1800 if is_active else 0,
             seconds_elapsed=1800 if is_active else 3600,
             total_takes=i * 3,
-            progress_percentage=100.0 if not is_active else 50.0
         )
         rounds.append(round_info)
     

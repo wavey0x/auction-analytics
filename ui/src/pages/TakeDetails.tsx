@@ -177,6 +177,12 @@ const TakeDetails: React.FC = () => {
                   <span className="text-gray-400">Token:</span>
                   <AddressDisplay address={takeDetails.from_token} />
                 </div>
+                {typeof takeDetails.from_token_price_usd === 'number' && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">From Token USD:</span>
+                    <span className="font-mono">{formatUSD(takeDetails.from_token_price_usd)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-400">USD Value:</span>
                   <span className="font-mono">{formatUSD(takeDetails.pnl_analysis.take_value_usd)}</span>
@@ -196,10 +202,12 @@ const TakeDetails: React.FC = () => {
                   <span className="text-gray-400">Token:</span>
                   <AddressDisplay address={takeDetails.to_token} />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Exchange Rate:</span>
-                  <span className="font-mono">{formatReadableTokenAmount(takeDetails.price)} {takeDetails.to_token_symbol}/{takeDetails.from_token_symbol}</span>
-                </div>
+                {typeof takeDetails.want_token_price_usd === 'number' && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Want Token USD:</span>
+                    <span className="font-mono">{formatUSD(takeDetails.want_token_price_usd)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

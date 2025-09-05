@@ -7,6 +7,7 @@ import AddressLink from './AddressLink';
 import TakerLink from './TakerLink';
 import RoundLink from './RoundLink';
 import TakeLink from './TakeLink';
+import RoundTakeDisplay from './RoundTakeDisplay';
 import StandardTxHashLink from './StandardTxHashLink';
 import TokenPairDisplay from './TokenPairDisplay';
 import MobileCard from './MobileCard';
@@ -35,23 +36,11 @@ const TakeCardMobile: React.FC<TakeCardMobileProps> = ({
             size="sm"
             showName={false}
           />
-          {take.auction ? (
-            <RoundLink
-              chainId={take.chain_id}
-              auctionAddress={take.auction}
-              roundId={take.round_id}
-            />
-          ) : (
-            <span className="font-mono text-sm text-gray-300">
-              R{take.round_id}
-            </span>
-          )}
-          <TakeLink
+          <RoundTakeDisplay
             chainId={take.chain_id}
             auctionAddress={take.auction}
             roundId={take.round_id}
             takeSeq={take.take_seq}
-            variant="icon"
             size="sm"
           />
         </div>

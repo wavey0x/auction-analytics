@@ -124,7 +124,6 @@ const TakersTable: React.FC<TakersTableProps> = ({ chainFilter, limit = 50 }) =>
               <tr>
                 <th className="text-left px-4 py-3 cursor-pointer hover:bg-gray-700" onClick={handleRankSort}>
                   <div className="flex items-center space-x-2">
-                    <Trophy className="h-4 w-4 text-yellow-400" />
                     <div className="flex flex-col">
                       <span className="font-medium">Rank</span>
                       <span className="text-xs text-gray-400">
@@ -163,13 +162,23 @@ const TakersTable: React.FC<TakersTableProps> = ({ chainFilter, limit = 50 }) =>
               </tr>
             </thead>
             <tbody className="bg-gray-900">
-              {filteredTakers.map((taker, index) => (
+              {filteredTakers.map((taker, index) => {
+                const rank = sortField === 'total_volume_usd' ? taker.rank_by_volume : taker.rank_by_takes;
+                const getTrophyIcon = (rank: number) => {
+                  if (rank === 1) return <Trophy className="h-4 w-4 text-yellow-400" />;
+                  if (rank === 2) return <Trophy className="h-4 w-4 text-gray-300" />;
+                  if (rank === 3) return <Trophy className="h-4 w-4 text-amber-600" />;
+                  return null;
+                };
+                
+                return (
                 <tr key={taker.taker} className="group hover:bg-gray-800/50">
                   <td className="px-4 py-3">
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-bold text-white">
-                        #{sortField === 'total_volume_usd' ? taker.rank_by_volume : taker.rank_by_takes}
+                        #{rank}
                       </span>
+                      {getTrophyIcon(rank)}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -213,7 +222,8 @@ const TakersTable: React.FC<TakersTableProps> = ({ chainFilter, limit = 50 }) =>
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -213,9 +213,17 @@ class UnifiedPricingService:
                         source,
                     ),
                 )
+                
+                # Verify that the write actually succeeded
+                if cur.rowcount == 0:
+                    logger.warning(f"No rows affected when storing {source} price for {token_address[:6]}..{token_address[-4:]} at block {block_number}")
+                    return False
+                
+                logger.debug(f"Successfully stored {source} price for {token_address[:6]}..{token_address[-4:]} at block {block_number} (rows affected: {cur.rowcount})")
                 return True
+                
         except Exception as e:
-            logger.warning(f"Failed to store {source} price for {token_address}: {e}")
+            logger.warning(f"Failed to store {source} price for {token_address[:6]}..{token_address[-4:]}: {e}")
             return False
 
     def _mark_completed(self, request_id: int) -> None:

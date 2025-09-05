@@ -12,6 +12,7 @@ interface TakeLinkProps {
   className?: string
   variant?: 'default' | 'icon' | 'minimal'
   size?: 'sm' | 'md' | 'lg'
+  showArrow?: boolean
 }
 
 const TakeLink: React.FC<TakeLinkProps> = ({
@@ -22,7 +23,8 @@ const TakeLink: React.FC<TakeLinkProps> = ({
   children,
   className,
   variant = 'default',
-  size = 'md'
+  size = 'md',
+  showArrow = true
 }) => {
   const sizeClasses = {
     sm: 'text-xs',
@@ -57,29 +59,30 @@ const TakeLink: React.FC<TakeLinkProps> = ({
     return (
       <InternalLink 
         to={`/take/${chainId}/${auctionAddress}/${roundId}/${takeSeq}`}
+        variant="take"
+        showArrow={showArrow}
         className={cn(
-          "font-mono text-primary-400 hover:text-primary-300 transition-colors",
           sizeClasses[size],
           className
         )}
       >
-        {children || takeId}
+        {children || `T${takeSeq}`}
       </InternalLink>
     )
   }
 
-  // Default variant
+  // Default variant - using new InternalLink variant system
   return (
     <InternalLink 
       to={`/take/${chainId}/${auctionAddress}/${roundId}/${takeSeq}`}
+      variant="take"
+      showArrow={showArrow}
       className={cn(
-        "inline-flex items-center space-x-1 text-primary-400 hover:text-primary-300 transition-colors font-mono",
         sizeClasses[size],
         className
       )}
     >
-      <Activity className={iconSizes[size]} />
-      <span>{children || takeId}</span>
+      {children || `T${takeSeq}`}
     </InternalLink>
   )
 }

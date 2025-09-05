@@ -57,9 +57,11 @@ class AuctionRoundInfo(BaseModel):
     time_remaining: Optional[int] = Field(None, description="Seconds until round ends")
     seconds_elapsed: int = Field(..., description="Seconds since round started")
     total_takes: int = Field(0, description="Number of takes in this round")
-    progress_percentage: Optional[float] = Field(None, description="Percentage of tokens sold")
     from_token: Optional[TokenInfo] = Field(None, description="Full token info for the round's from_token")
     transaction_hash: Optional[str] = Field(None, description="Kick transaction hash")
+    block_number: Optional[int] = Field(None, description="Block number of the round kick")
+    from_token_price_usd: Optional[str] = Field(None, description="USD price of from_token at round block")
+    want_token_price_usd: Optional[str] = Field(None, description="USD price of want_token at round block")
 
 class Take(BaseModel):
     """Individual take within an auction round"""
@@ -303,7 +305,8 @@ class TakeDetail(BaseModel):
     to_token_symbol: Optional[str] = Field(None, description="To token symbol")
     amount_taken: str = Field(..., description="Amount of from_token purchased")
     amount_paid: str = Field(..., description="Amount of to_token paid")
-    price: str = Field(..., description="Price per from_token in to_token units")
+    from_token_price_usd: Optional[float] = Field(None, description="USD price of the from_token at take time")
+    want_token_price_usd: Optional[float] = Field(None, description="USD price of the want_token at take time")
     
     # Gas and transaction details
     tx_hash: str = Field(..., description="Transaction hash")

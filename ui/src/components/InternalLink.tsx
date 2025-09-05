@@ -8,7 +8,7 @@ import { useHoverTooltip } from '../hooks/useHoverTooltip';
 interface InternalLinkProps {
   to: string;
   children: React.ReactNode;
-  variant?: 'default' | 'address' | 'round';
+  variant?: 'default' | 'address' | 'round' | 'take' | 'taker' | 'auction';
   className?: string;
   showArrow?: boolean;
   // Props for contextual actions
@@ -31,12 +31,15 @@ const InternalLink: React.FC<InternalLinkProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   
-  const baseClasses = "internal-link group relative";
+  const baseClasses = "internal-link group relative inline-flex items-center px-2 py-1 rounded-md border transition-all duration-200";
   
   const variantClasses = {
-    default: "text-white hover:text-gray-300",
-    address: "text-white hover:text-gray-300 font-mono",
-    round: "text-gray-300 hover:text-primary-300 font-mono font-semibold",
+    default: "text-white hover:text-gray-300 border-gray-700 hover:border-gray-600",
+    address: "text-white hover:text-gray-300 font-mono border-primary-500/40 hover:border-primary-400/60",
+    auction: "text-white hover:text-gray-300 font-mono border-primary-600/50 hover:border-primary-500/70",
+    round: "text-white hover:text-gray-300 font-mono font-semibold border-gray-500 hover:border-gray-400",
+    take: "text-white hover:text-gray-300 font-mono font-semibold border-gray-600 hover:border-gray-500",
+    taker: "text-white hover:text-gray-300 font-mono border-primary-400/40 hover:border-primary-300/60",
   };
 
   const chainInfo = chainId ? getChainInfo(chainId) : null;
@@ -44,12 +47,15 @@ const InternalLink: React.FC<InternalLinkProps> = ({
   
   // Determine if contextual actions should be shown based on variant
   const showContextActions = (() => {
-    if (variant === 'address') {
-      // Address variant automatically shows actions when address is provided
+    if (variant === 'address' || variant === 'auction') {
+      // Address/auction variants automatically show actions when address is provided
       return address && (hasExplorer || true); // Show copy always, external if explorer exists
-    } else if (variant === 'round') {
-      // Round variant never shows contextual actions
+    } else if (variant === 'round' || variant === 'take') {
+      // Round and take variants never show contextual actions
       return false;
+    } else if (variant === 'taker') {
+      // Taker variant shows copy action only
+      return address;
     } else {
       // Default variant respects explicit props
       return (showExternalLink && hasExplorer && address) || (showCopy && address);
@@ -82,7 +88,7 @@ const InternalLink: React.FC<InternalLinkProps> = ({
     e.preventDefault();
     e.stopPropagation();
     if (hasExplorer && address) {
-      const url = variant === 'address' 
+      const url = (variant === 'address' || variant === 'auction' || variant === 'taker')
         ? `${chainInfo.explorer}/address/${address}`
         : `${chainInfo.explorer}/address/${address}`;
       window.open(url, "_blank", "noopener,noreferrer");
@@ -130,7 +136,7 @@ const InternalLink: React.FC<InternalLinkProps> = ({
             onMouseLeave={handleTooltipMouseLeave}
           >
             {/* Copy icon first */}
-            {((variant === 'address' && address) || (showCopy && address)) && (
+            {((variant === 'address' && address) || (variant === 'auction' && address) || (variant === 'taker' && address) || (showCopy && address)) && (
               <button
                 onClick={handleCopy}
                 className="p-0.5 text-gray-500 hover:text-gray-300 transition-colors hover:scale-110"
@@ -145,7 +151,7 @@ const InternalLink: React.FC<InternalLinkProps> = ({
             )}
             
             {/* External link icon second */}
-            {((variant === 'address' && hasExplorer && address) || (showExternalLink && hasExplorer && address)) && (
+            {((variant === 'address' && hasExplorer && address) || (variant === 'auction' && hasExplorer && address) || (variant === 'taker' && hasExplorer && address) || (showExternalLink && hasExplorer && address)) && (
               <button
                 onClick={handleExternalLink}
                 className="p-0.5 text-gray-500 hover:text-primary-400 transition-colors hover:scale-110"

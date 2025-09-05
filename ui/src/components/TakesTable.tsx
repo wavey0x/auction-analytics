@@ -10,6 +10,7 @@ import TakerLink from "./TakerLink";
 import InternalLink from "./InternalLink";
 import RoundLink from "./RoundLink";
 import TakeLink from "./TakeLink";
+import RoundTakeDisplay from "./RoundTakeDisplay";
 import TokenPairDisplay from "./TokenPairDisplay";
 import {
   formatTokenAmount,
@@ -114,7 +115,7 @@ const TakesTable: React.FC<TakesTableProps> = ({
           <tr>
             <th className="text-center w-[22px] min-w-[22px] max-w-[22px] px-0 py-2"><span className="sr-only">Chain</span></th>
             {!hideAuctionColumn && <th className="text-center w-24 px-0.5 py-2">Auction</th>}
-            <th className="text-center w-16 px-0.5 py-2">Round</th>
+            <th className="text-center w-20 px-0.5 py-2">Round | Take</th>
             <th className="text-left w-32 px-0.5 py-2">Tokens</th>
             <th 
               className="text-center w-32 px-0.5 py-2 cursor-pointer hover:bg-gray-700/50 transition-colors"
@@ -126,7 +127,6 @@ const TakesTable: React.FC<TakesTableProps> = ({
             <th className="text-center w-24 px-0.5 py-2">Profit/Loss</th>
             <th className="text-center w-24 px-0.5 py-2">Taker</th>
             <th className="text-center w-20 px-0.5 py-2">Time</th>
-            <th className="text-center w-20 px-0.5 py-2">Take</th>
             <th className="text-center w-24 px-0.5 py-2">Transaction</th>
           </tr>
         </thead>
@@ -156,17 +156,13 @@ const TakesTable: React.FC<TakesTableProps> = ({
 
               <td className="px-0.5 py-1">
                 <div className="flex justify-center">
-                  {take.auction ? (
-                    <RoundLink
-                      chainId={take.chain_id}
-                      auctionAddress={take.auction}
-                      roundId={take.round_id}
-                    />
-                  ) : (
-                    <span className="font-mono text-sm text-gray-300">
-                      R{take.round_id}
-                    </span>
-                  )}
+                  <RoundTakeDisplay
+                    chainId={take.chain_id}
+                    auctionAddress={take.auction}
+                    roundId={take.round_id}
+                    takeSeq={take.take_seq}
+                    size="sm"
+                  />
                 </div>
               </td>
 
@@ -253,24 +249,6 @@ const TakesTable: React.FC<TakesTableProps> = ({
                 </span>
               </td>
 
-              <td className="px-0.5 py-1">
-                <div className="flex justify-center">
-                  {take.take_id && take.auction && take.round_id !== undefined && take.take_seq !== undefined ? (
-                    <TakeLink
-                      chainId={take.chain_id}
-                      auctionAddress={take.auction}
-                      roundId={take.round_id}
-                      takeSeq={take.take_seq}
-                      variant="icon"
-                      size="sm"
-                    />
-                  ) : (
-                    <div className="w-4 h-4 flex items-center justify-center text-gray-500">
-                      —
-                    </div>
-                  )}
-                </div>
-              </td>
 
               <td className="px-0.5 py-1">
                 <StandardTxHashLink

@@ -3,17 +3,19 @@ import ChainIcon from "./ChainIcon";
 import InternalLink from "./InternalLink";
 import TokenPairDisplay from "./TokenPairDisplay";
 import Pagination from "./Pagination";
-import { cn, formatTimeAgo, formatTokenAmount } from "../lib/utils";
+import { cn, formatTimeAgo, formatReadableTokenAmount, formatUSD } from "../lib/utils";
 
 interface RoundItem {
   round_id: number;
   kicked_at: string; // ISO string
   round_start?: number;
   round_end?: number;
-  initial_available: string; // raw units
+  initial_available: string; // decimal format
   is_active: boolean;
   total_takes: number;
   from_token: string; // address
+  total_pnl_usd?: string; // aggregated PnL for the round
+  avg_pnl_percent?: number; // average PnL percentage
 }
 
 interface TokenMeta {
@@ -75,12 +77,13 @@ const RoundsTable: React.FC<RoundsTableProps> = ({
             <thead className="bg-gray-800/50">
               <tr>
                 <th className="text-center w-[32px] min-w-[32px] max-w-[32px] pl-4 pr-2 py-2"><span className="sr-only">Chain</span></th>
-                <th className="text-center py-2">Round</th>
+                <th className="text-left py-2">Round</th>
                 <th className="text-center py-2">Tokens</th>
                 <th className="text-center py-2">Kicked</th>
                 <th className="text-center py-2">Status</th>
                 <th className="text-center py-2">Starting Amount</th>
                 <th className="text-center py-2">Takes</th>
+                <th className="text-center py-2">Profit/Loss</th>
               </tr>
             </thead>
             <tbody>
@@ -98,7 +101,7 @@ const RoundsTable: React.FC<RoundsTableProps> = ({
                         <ChainIcon chainId={chainId} size="xs" showName={false} />
                       </div>
                     </td>
-                    <td className="text-center">
+                    <td className="text-left">
                       <InternalLink
                         to={`/round/${chainId}/${auctionAddress}/${r.round_id}`}
                         variant="round"
@@ -129,11 +132,39 @@ const RoundsTable: React.FC<RoundsTableProps> = ({
                     </td>
                     <td className="text-center">
                       <span className="font-mono text-sm text-gray-200">
-                        {formatTokenAmount(r.initial_available || "0", decimals, 2)}
+                        {formatReadableTokenAmount(r.initial_available || "0", 2)}
                       </span>
                     </td>
                     <td className="text-center">
                       <span className="text-sm text-gray-300">{r.total_takes}</span>
+                    </td>
+                    <td className="text-center">
+                      <div className="text-sm">
+                        {r.total_pnl_usd && r.avg_pnl_percent !== null ? (
+                          <>
+                            <div className={cn(
+                              "font-medium leading-tight",
+                              parseFloat(r.total_pnl_usd) >= 0 
+                                ? "text-green-400" 
+                                : "text-red-400"
+                            )}>
+                              {formatUSD(Math.abs(parseFloat(r.total_pnl_usd)), 2)}
+                            </div>
+                            <div className={cn(
+                              "text-xs leading-tight font-medium",
+                              parseFloat(r.total_pnl_usd) >= 0 
+                                ? "text-green-500" 
+                                : "text-red-500"
+                            )}>
+                              {Math.abs(r.avg_pnl_percent).toFixed(2)}%
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-xs text-gray-500">
+                            N/A
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

@@ -144,35 +144,27 @@ const AuctionDetails: React.FC = () => {
     queryFn: apiClient.getTokens,
   });
 
-  // Fetch all rounds across all from_tokens, merge and sort
-  const { data: allRounds } = useQuery({
+  // Fetch all rounds across all from_tokens with a single API call
+  const { data: allRoundsResponse } = useQuery({
     queryKey: [
       "auctionRoundsAll",
       chainId,
       address,
-      auction?.from_tokens?.map((t) => t.address).join(","),
     ],
     queryFn: async () => {
-      if (!auction?.from_tokens?.length) return [] as any[];
-      const chain = parseInt(chainId!);
-      const results = await Promise.all(
-        auction.from_tokens.map((ft) =>
-          apiClient
-            .getAuctionRounds(address!, chain, ft.address)
-            .then((r) => ({ rounds: r.rounds || [], from: ft.address }))
-        )
-      );
-      const merged = results.flatMap(({ rounds, from }) =>
-        rounds.map((r) => ({ ...r, from_token: from }))
-      );
-      return merged.sort(
-        (a, b) =>
-          new Date(b.kicked_at).getTime() - new Date(a.kicked_at).getTime()
-      );
+      if (!chainId || !address) return null;
+      const chain = parseInt(chainId);
+      // Single API call without from_token parameter to get all rounds
+      return apiClient.getAuctionRounds(address, chain);
     },
     enabled: !!auction && !!chainId && !!address,
     staleTime: 10000,
   });
+
+  // Extract rounds from response and sort by kicked_at
+  const allRounds = allRoundsResponse?.rounds?.sort(
+    (a, b) => new Date(b.kicked_at).getTime() - new Date(a.kicked_at).getTime()
+  ) || [];
 
   // Pagination state for rounds (calculated after allRounds is available)
   const totalRounds = allRounds?.length || 0;

@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List, Dict, Any, Optional
 import logging
 import json
+import traceback
+import time
 import argparse
 import asyncio
 import os
@@ -23,7 +25,7 @@ except Exception:  # pragma: no cover
 from datetime import datetime, timezone
 
 from monitoring.api.config import get_settings, get_cors_origins, is_mock_mode, requires_database, get_all_network_configs, get_enabled_networks, is_development_mode
-from monitoring.api.models.auction import SystemStats
+from monitoring.api.models.auction import SystemStats, AuctionListResponse
 from monitoring.api.models.taker import TakerSummary, TakerDetail, TakerListResponse, TakerTakesResponse
 from monitoring.api.database import get_db, check_database_connection, get_data_provider, DataProvider
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -156,7 +158,8 @@ app = FastAPI(
     description=f"API for Auction data - Running in {settings.app_mode.value} mode",
     version="2.0.0",
     docs_url="/api/docs" if not is_mock_mode() else "/docs",
-    redoc_url="/api/redoc" if not is_mock_mode() else "/redoc"
+    redoc_url="/api/redoc" if not is_mock_mode() else "/redoc",
+    debug=is_development_mode() or os.getenv('API_DEBUG', 'false').lower() in ('1','true','yes','on')
 )
 
 # CORS middleware
@@ -167,6 +170,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Lightweight request/response logging for troubleshooting
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.time()
+    try:
+        response = await call_next(request)
+        duration_ms = int((time.time() - start) * 1000)
+        logger.info(f"HTTP {request.method} {request.url.path} -> {getattr(response, 'status_code', 'NA')} in {duration_ms}ms")
+        return response
+    except Exception as e:
+        duration_ms = int((time.time() - start) * 1000)
+        logger.error(f"HTTP {request.method} {request.url.path} errored in {duration_ms}ms: {e}")
+        raise
+
+# Global exception handler to include tracebacks in dev
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    logger.error(f"Unhandled exception on {request.method} {request.url}: {exc}\n{tb}")
+    if is_development_mode() or os.getenv('API_DEBUG', 'false').lower() in ('1','true','yes','on'):
+        return JSONResponse(status_code=500, content={
+            "error": "internal_server_error",
+            "message": str(exc),
+            "path": str(request.url),
+            "trace": tb
+        })
+    # Production-safe message
+    return JSONResponse(status_code=500, content={"error": "internal_server_error"})
 
 # Mount status router
 app.include_router(status_router)
@@ -264,7 +296,7 @@ async def health_check():
     return status
 
 
-@app.get("/auctions")
+@app.get("/auctions", response_model=AuctionListResponse)
 async def get_auctions(
     status: str = Query("all", description="Filter by status: all, active, completed"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -724,7 +756,7 @@ async def get_take_details(
             "round_id": take_data.round_id,
             "take_seq": take_data.take_seq,
             "taker": take_data.taker,
-            
+
             # Token exchange details
             "from_token": take_data.from_token,
             "to_token": take_data.to_token,
@@ -732,7 +764,8 @@ async def get_take_details(
             "to_token_symbol": take_data.to_token_symbol,
             "amount_taken": str(take_data.amount_taken),
             "amount_paid": str(take_data.amount_paid),
-            "price": str(take_data.price),
+            "from_token_price_usd": float(take_data.from_token_price_usd) if getattr(take_data, 'from_token_price_usd', None) is not None else None,
+            "want_token_price_usd": float(take_data.to_token_price_usd) if getattr(take_data, 'to_token_price_usd', None) is not None else None,
             
             # Transaction details
             "tx_hash": take_data.transaction_hash,
