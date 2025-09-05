@@ -249,7 +249,11 @@ def main():
     # Get configuration from environment
     app_mode = os.getenv('APP_MODE', 'dev')
     db_url = os.getenv(f'{app_mode.upper()}_DATABASE_URL')
-    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+    try:
+        from scripts.lib.redis_utils import build_redis_url
+        redis_url = build_redis_url(role='publisher')
+    except Exception:
+        redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
     
     if not db_url:
         logger.error("Database URL not configured")

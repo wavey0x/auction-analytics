@@ -873,14 +873,12 @@ async def event_stream(
             yield "data: {\"type\": \"connected\"}\n\n"
             
             # Build Redis client (prefer asyncio to avoid blocking the event loop)
-            # Use shared builder so dev docker vs prod native host are handled via env
-            redis_url = os.getenv('REDIS_URL')
-            if not redis_url:
-                try:
-                    from scripts.lib.redis_utils import build_redis_url  # type: ignore
-                    redis_url = build_redis_url(role='consumer')
-                except Exception:
-                    redis_url = 'redis://localhost:6379'
+            # Always use shared builder; it respects REDIS_URL but injects creds if missing
+            try:
+                from scripts.lib.redis_utils import build_redis_url  # type: ignore
+                redis_url = build_redis_url(role='consumer')
+            except Exception:
+                redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
             stream_key = os.getenv('REDIS_STREAM_KEY', 'events')
             use_async = aioredis is not None
             if use_async:
