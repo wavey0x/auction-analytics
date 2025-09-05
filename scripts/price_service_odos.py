@@ -174,6 +174,7 @@ class OdosPriceService:
                         chain_id, block_number, token_address, 
                         price_usd, timestamp, txn_timestamp, source, created_at
                     ) VALUES (%s, %s, %s, %s, %s, %s, 'odos', NOW())
+                    ON CONFLICT (chain_id, block_number, token_address, source) DO NOTHING
                 """, (
                     chain_id, 
                     block_number,  # Store the block from the price request

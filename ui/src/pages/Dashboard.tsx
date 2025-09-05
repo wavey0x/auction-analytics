@@ -352,15 +352,15 @@ const Dashboard: React.FC = () => {
 
       {/* Floating Button Group */}
       <div className="relative">
-        <div className="flex justify-center mb-6">
-          <div className="inline-flex rounded-lg bg-gray-800/50 p-1 backdrop-blur-sm border border-gray-700/50">
+        <div className="flex justify-center mb-6 px-2 sm:px-0">
+          <div className="inline-flex rounded-lg bg-gray-800/50 p-1 backdrop-blur-sm border border-gray-700/50 w-full sm:w-auto overflow-x-auto sm:overflow-x-visible">
             <button type="button"
               onClick={() => setActiveView('active-rounds')}
               className={`${
                 activeView === 'active-rounds'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 space-x-2`}
+              } inline-flex items-center px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 sm:space-x-2 whitespace-nowrap`}
             >
               <PulsingDot />
               <span>Active Rounds</span>
@@ -384,7 +384,7 @@ const Dashboard: React.FC = () => {
                 activeView === 'takes'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 space-x-2`}
+              } inline-flex items-center px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 sm:space-x-2 whitespace-nowrap`}
             >
               <Activity className="h-4 w-4" />
               <span>Takes</span>
@@ -408,7 +408,7 @@ const Dashboard: React.FC = () => {
                 activeView === 'all-auctions'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 space-x-2`}
+              } inline-flex items-center px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 sm:space-x-2 whitespace-nowrap`}
             >
               <Gavel className="h-4 w-4" />
               <span>Auctions</span>
@@ -432,7 +432,7 @@ const Dashboard: React.FC = () => {
                 activeView === 'takers'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 space-x-2`}
+              } inline-flex items-center px-2 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 sm:space-x-2 whitespace-nowrap`}
             >
               <Users className="h-4 w-4" />
               <span>Takers</span>

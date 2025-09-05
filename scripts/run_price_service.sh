@@ -32,7 +32,7 @@ EOF
 
 # Defaults
 PRICER="ypm"
-NETWORK="wavey-mainnet"
+NETWORK="mainnet"
 RETRY_FAILED=false
 POLL_INTERVAL=""  # Will be set based on pricer
 RECENCY_MINUTES=10

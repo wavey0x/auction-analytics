@@ -38,17 +38,3 @@ networks:
     gas_limit: 12000000
     gas_price: 20000000000
     required_confs: 2
-
-  electro:
-    host: ${ETHEREUM_RPC_URL}
-    chainid: 1  
-    gas_limit: 12000000
-    gas_price: 20000000000
-    required_confs: 2
-
-  wavey-mainnet:
-    host: ${ETHEREUM_RPC_URL}
-    chainid: 1
-    gas_limit: 12000000
-    gas_price: 20000000000
-    required_confs: 2
