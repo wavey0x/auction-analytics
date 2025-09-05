@@ -10,6 +10,7 @@ Usage:
 
 import os
 from typing import Optional
+import sys
 
 
 def build_redis_url(
@@ -47,6 +48,7 @@ def build_redis_url(
 
     url = f"{scheme}://{auth}{host}:{port}/{db}"
     print(f"Attempting to connect to Redis with: {url}")
+    sys.stdout.flush()
     return url
 
 
