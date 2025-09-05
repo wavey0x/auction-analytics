@@ -120,10 +120,15 @@ class YPriceMagicService:
             except ImportError as e:
                 logger.error(f"❌ Failed to import ypricemagic: {e}")
                 logger.error("Install with: pip install ypricemagic")
+                self.magic = None
                 sys.exit(1)
             except Exception as magic_error:
                 logger.error(f"❌ ypricemagic test failed: {magic_error}")
                 logger.warning("Continuing anyway - may work for actual requests...")
+                # Ensure magic is still set even if test failed
+                if not hasattr(self, 'magic') or self.magic is None:
+                    logger.error("❌ self.magic was not properly initialized")
+                    self.magic = None
                 
         except Exception as e:
             logger.error(f"❌ Failed to initialize Brownie network: {e}")
@@ -218,6 +223,10 @@ class YPriceMagicService:
         """
         try:
             from brownie import chain, web3
+            
+            # Check if magic is properly initialized
+            if not hasattr(self, 'magic') or self.magic is None:
+                return None, None, "ypricemagic not properly initialized"
             
             # Use ypricemagic to get price
             try:
