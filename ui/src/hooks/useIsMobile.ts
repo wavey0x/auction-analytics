@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
 
 export const useIsMobile = (breakpoint: number = 768): boolean => {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    // Initialize with correct value during hydration
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < breakpoint;
+    }
+    return false;
+  });
 
   useEffect(() => {
     const checkIsMobile = () => {
       setIsMobile(window.innerWidth < breakpoint);
     };
 
+    // Check on mount in case initial state was wrong
     checkIsMobile();
+    
     window.addEventListener('resize', checkIsMobile);
 
     return () => window.removeEventListener('resize', checkIsMobile);

@@ -4,6 +4,7 @@ import { BarChart3, Hash, DollarSign } from 'lucide-react';
 import { TakerSummary } from '../types/taker';
 import { formatUSD, formatNumber, cn } from '../lib/utils';
 import { useAddressTag } from '../hooks/useAddressTag';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface TakersPieChartProps {
   takers: TakerSummary[];
@@ -35,9 +36,20 @@ const COLORS = [
 const TakersPieChart: React.FC<TakersPieChartProps> = ({ takers, className }) => {
   const [mode, setMode] = useState<ChartMode>('count');
   const { getDisplayName } = useAddressTag();
+  const isMobile = useIsMobile();
+
+  // Check if we have any valid USD data
+  const hasValidVolumeData = useMemo(() => {
+    return takers.some(taker => taker.total_volume_usd && taker.total_volume_usd > 0);
+  }, [takers]);
 
   // Prepare data for the chart
   const chartData = useMemo(() => {
+    // If volume mode is selected but no valid volume data exists, return empty
+    if (mode === 'volume' && !hasValidVolumeData) {
+      return [];
+    }
+
     // Filter out takers with no data for the selected mode
     const validTakers = takers.filter(taker => {
       if (mode === 'count') return taker.total_takes > 0;
@@ -102,7 +114,7 @@ const TakersPieChart: React.FC<TakersPieChartProps> = ({ takers, className }) =>
     }
 
     return chartData;
-  }, [takers, mode, getDisplayName]);
+  }, [takers, mode, getDisplayName, hasValidVolumeData]);
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload }: any) => {
@@ -157,102 +169,119 @@ const TakersPieChart: React.FC<TakersPieChartProps> = ({ takers, className }) =>
     );
   };
 
-  if (!chartData.length) {
-    return (
-      <div className={cn("bg-gray-900 border border-gray-800 rounded-lg p-6", className)}>
-        <div className="text-center text-gray-500">
-          <BarChart3 className="h-12 w-12 mx-auto mb-3 text-gray-600" />
-          <p className="text-sm">No data available for chart</p>
-        </div>
-      </div>
-    );
-  }
+  // Render the toggle buttons component
+  const toggleButtons = (
+    <div className="flex items-center bg-gray-800 rounded-lg p-1">
+      <button
+        onClick={() => setMode('count')}
+        className={cn(
+          "flex items-center space-x-2 px-3 rounded-md text-sm font-medium transition-colors",
+          isMobile ? "py-2 min-h-[44px]" : "py-1.5",
+          mode === 'count'
+            ? "bg-primary-600 text-white"
+            : "text-gray-400 hover:text-gray-200"
+        )}
+      >
+        <Hash className="h-4 w-4" />
+        <span>Count</span>
+      </button>
+      <button
+        onClick={() => setMode('volume')}
+        className={cn(
+          "flex items-center space-x-2 px-3 rounded-md text-sm font-medium transition-colors",
+          isMobile ? "py-2 min-h-[44px]" : "py-1.5",
+          !hasValidVolumeData 
+            ? "text-gray-600 cursor-not-allowed opacity-50" 
+            : mode === 'volume'
+              ? "bg-primary-600 text-white"
+              : "text-gray-400 hover:text-gray-200"
+        )}
+        disabled={!hasValidVolumeData}
+        title={!hasValidVolumeData ? "No volume data available" : undefined}
+      >
+        <DollarSign className="h-4 w-4" />
+        <span>Volume</span>
+      </button>
+    </div>
+  );
 
   return (
     <div className={cn("bg-gray-900 border border-gray-800 rounded-lg p-6", className)}>
-      {/* Header with toggle */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Header with toggle - responsive layout */}
+      <div className={`${isMobile ? 'space-y-4' : 'flex items-center justify-between'} mb-6`}>
         <div className="flex items-center space-x-2">
           <BarChart3 className="h-5 w-5 text-primary-400" />
           <h3 className="text-lg font-medium text-gray-200">
-            Solver Distribution
+            Taker Distribution
           </h3>
         </div>
         
-        {/* Mode toggle */}
-        <div className="flex items-center bg-gray-800 rounded-lg p-1">
-          <button
-            onClick={() => setMode('count')}
-            className={cn(
-              "flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              mode === 'count'
-                ? "bg-primary-600 text-white"
-                : "text-gray-400 hover:text-gray-200"
-            )}
-          >
-            <Hash className="h-4 w-4" />
-            <span>Count</span>
-          </button>
-          <button
-            onClick={() => setMode('volume')}
-            className={cn(
-              "flex items-center space-x-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-              mode === 'volume'
-                ? "bg-primary-600 text-white"
-                : "text-gray-400 hover:text-gray-200"
-            )}
-          >
-            <DollarSign className="h-4 w-4" />
-            <span>Volume</span>
-          </button>
+        {/* Mode toggle - on new line for mobile */}
+        <div className={`${isMobile ? 'flex justify-center' : ''}`}>
+          {toggleButtons}
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              outerRadius={100}
-              innerRadius={30}
-              paddingAngle={2}
-              dataKey="value"
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            <Legend content={renderLegend} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Summary stats */}
-      <div className="mt-4 pt-4 border-t border-gray-800">
-        <div className="grid grid-cols-2 gap-4 text-center">
-          <div>
-            <div className="text-xl font-semibold text-gray-200">
-              {chartData.length}
-            </div>
-            <div className="text-xs text-gray-500">Top Solvers</div>
-          </div>
-          <div>
-            <div className="text-xl font-semibold text-gray-200">
-              {mode === 'count' 
-                ? formatNumber(chartData.reduce((sum, d) => sum + d.takes, 0))
-                : formatUSD(chartData.reduce((sum, d) => sum + (d.volumeUsd || 0), 0))
-              }
-            </div>
-            <div className="text-xs text-gray-500">
-              Total {mode === 'count' ? 'Takes' : 'Volume'}
-            </div>
-          </div>
+      {/* Chart or No Data Message */}
+      {!chartData.length ? (
+        <div className="text-center text-gray-500">
+          <BarChart3 className="h-12 w-12 mx-auto mb-3 text-gray-600" />
+          <p className="text-sm">
+            {mode === 'volume' && !hasValidVolumeData 
+              ? "No volume data available" 
+              : "No data available for chart"
+            }
+          </p>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Chart */}
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  innerRadius={30}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend content={renderLegend} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Summary stats */}
+          <div className="mt-4 pt-4 border-t border-gray-800">
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div>
+                <div className="text-xl font-semibold text-gray-200">
+                  {chartData.length}
+                </div>
+                <div className="text-xs text-gray-500">Top Takers</div>
+              </div>
+              <div>
+                <div className="text-xl font-semibold text-gray-200">
+                  {mode === 'count' 
+                    ? formatNumber(chartData.reduce((sum, d) => sum + d.takes, 0))
+                    : formatUSD(chartData.reduce((sum, d) => sum + (d.volumeUsd || 0), 0))
+                  }
+                </div>
+                <div className="text-xs text-gray-500">
+                  Total {mode === 'count' ? 'Takes' : 'Volume'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -68,6 +68,11 @@ const Dashboard: React.FC = () => {
   const [auctionsPage, setAuctionsPage] = useState(1);
   const [auctionsPerPage] = useState(25);
   const [showUSD, setShowUSD] = useState(defaultValueDisplay === 'usd');
+  
+  // Mobile hooks - must be called before any conditional returns
+  const isMobile = useIsMobile();
+  const spacing = getResponsiveSpacing(isMobile);
+  const textSize = getResponsiveText(isMobile);
 
   // Update showUSD when global setting changes
   useEffect(() => {
@@ -328,9 +333,6 @@ const Dashboard: React.FC = () => {
   const totalVolumeUSD = systemStats?.total_volume_usd || 0;
 
   const chainInfo = getChainInfo(31337); // Using Anvil chain
-  const isMobile = useIsMobile();
-  const spacing = getResponsiveSpacing(isMobile);
-  const textSize = getResponsiveText(isMobile);
 
   return (
     <div className={isMobile ? "space-y-6" : "space-y-10"}>
@@ -365,7 +367,7 @@ const Dashboard: React.FC = () => {
                 activeView === 'active-rounds'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center justify-center px-1 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 whitespace-nowrap min-h-[32px]`}
+              } inline-flex items-center justify-center ${isMobile ? 'px-2 py-2 min-h-[44px]' : 'px-4 py-2 min-h-[32px]'} rounded-md ${textSize.caption} font-medium transition-all duration-200 space-x-1 whitespace-nowrap`}
             >
               <PulsingDot />
               <span className="hidden sm:inline">Active Rounds</span>
@@ -387,7 +389,7 @@ const Dashboard: React.FC = () => {
                 activeView === 'takes'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center justify-center px-1 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 whitespace-nowrap min-h-[32px] sm:ml-1 sm:border-l sm:border-gray-600/50 sm:pl-3`}
+              } inline-flex items-center justify-center ${isMobile ? 'px-2 py-2 min-h-[44px]' : 'px-4 py-2 min-h-[32px] ml-1 border-l border-gray-600/50 pl-3'} rounded-md ${textSize.caption} font-medium transition-all duration-200 space-x-1 whitespace-nowrap`}
             >
               <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
               <span>Takes</span>
@@ -408,7 +410,7 @@ const Dashboard: React.FC = () => {
                 activeView === 'all-auctions'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center justify-center px-1 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 whitespace-nowrap min-h-[32px] sm:ml-1 sm:border-l sm:border-gray-600/50 sm:pl-3`}
+              } inline-flex items-center justify-center ${isMobile ? 'px-2 py-2 min-h-[44px]' : 'px-4 py-2 min-h-[32px] ml-1 border-l border-gray-600/50 pl-3'} rounded-md ${textSize.caption} font-medium transition-all duration-200 space-x-1 whitespace-nowrap`}
             >
               <Gavel className="h-3 w-3 sm:h-4 sm:w-4" />
               <span>Auctions</span>
@@ -429,7 +431,7 @@ const Dashboard: React.FC = () => {
                 activeView === 'takers'
                   ? 'bg-primary-700 text-white shadow-lg'
                   : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-              } inline-flex items-center justify-center px-1 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 space-x-1 whitespace-nowrap min-h-[32px] sm:ml-1 sm:border-l sm:border-gray-600/50 sm:pl-3`}
+              } inline-flex items-center justify-center ${isMobile ? 'px-2 py-2 min-h-[44px]' : 'px-4 py-2 min-h-[32px] ml-1 border-l border-gray-600/50 pl-3'} rounded-md ${textSize.caption} font-medium transition-all duration-200 space-x-1 whitespace-nowrap`}
             >
               <Users className="h-3 w-3 sm:h-4 sm:w-4" />
               <span>Takers</span>
@@ -452,20 +454,20 @@ const Dashboard: React.FC = () => {
           {activeView === 'active-rounds' && (
             <>
               {activeRounds.length > 0 ? (
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className={`overflow-x-auto ${isMobile ? '-mx-2' : '-mx-4 sm:mx-0'}`}>
                   <div className="min-w-full inline-block">
                     <table className="min-w-full table-auto border-collapse">
                       <thead className="bg-gray-800">
                         <tr>
-                          <th className="text-center w-[22px] min-w-[22px] max-w-[22px] px-1 py-2 text-xs"><span className="sr-only">Chain</span></th>
-                          <th className="text-center min-w-[100px] px-2 py-2 text-xs sm:text-sm">Auction</th>
-                          <th className="text-center min-w-[60px] px-2 py-2 text-xs sm:text-sm">Round</th>
-                          <th className="text-center min-w-[80px] px-2 py-2 text-xs sm:text-sm">Tokens</th>
-                          <th className="text-center min-w-[80px] px-2 py-2 text-xs sm:text-sm">Price</th>
-                          <th className="text-center min-w-[80px] px-2 py-2 text-xs sm:text-sm">Available</th>
-                          <th className="text-center min-w-[70px] px-2 py-2 text-xs sm:text-sm">Kick Txn</th>
-                          <th className="text-center min-w-[100px] px-2 py-2 text-xs sm:text-sm">Progress</th>
-                          <th className="text-center min-w-[80px] px-2 py-2 text-xs sm:text-sm">Time Left</th>
+                          <th className={`text-center w-[22px] min-w-[22px] max-w-[22px] ${spacing.tableCell} ${textSize.caption}`}><span className="sr-only">Chain</span></th>
+                          <th className={`text-center min-w-[100px] ${spacing.tableCell} ${textSize.caption}`}>Auction</th>
+                          <th className={`text-center min-w-[60px] ${spacing.tableCell} ${textSize.caption}`}>Round</th>
+                          <th className={`text-center min-w-[80px] ${spacing.tableCell} ${textSize.caption}`}>Tokens</th>
+                          <th className={`text-center min-w-[80px] ${spacing.tableCell} ${textSize.caption}`}>Price</th>
+                          <th className={`text-center min-w-[80px] ${spacing.tableCell} ${textSize.caption}`}>Available</th>
+                          <th className={`text-center min-w-[70px] ${spacing.tableCell} ${textSize.caption}`}>Kick Txn</th>
+                          <th className={`text-center min-w-[100px] ${spacing.tableCell} ${textSize.caption}`}>Progress</th>
+                          <th className={`text-center min-w-[80px] ${spacing.tableCell} ${textSize.caption}`}>Time Left</th>
                         </tr>
                       </thead>
                     <tbody>
@@ -506,7 +508,7 @@ const Dashboard: React.FC = () => {
                             key={`${round.auction}-${round.round_id}`}
                             className="group"
                           >
-                            <td className="w-[22px] min-w-[22px] max-w-[22px] px-1 py-2 text-center">
+                            <td className={`w-[22px] min-w-[22px] max-w-[22px] ${spacing.tableCell} text-center`}>
                               <div className="flex justify-center">
                                 <ChainIcon
                                   chainId={round.chain_id}
@@ -516,11 +518,11 @@ const Dashboard: React.FC = () => {
                               </div>
                             </td>
 
-                            <td className="min-w-[100px] px-2 py-2 text-center">
+                            <td className={`min-w-[100px] ${spacing.tableCell} text-center`}>
                               <InternalLink
                                 to={`/auction/${round.chain_id}/${round.auction}`}
                                 variant="address"
-                                className="font-mono text-xs sm:text-sm"
+                                className={`font-mono ${textSize.caption}`}
                                 address={round.auction}
                                 chainId={round.chain_id}
                               >
@@ -528,7 +530,7 @@ const Dashboard: React.FC = () => {
                               </InternalLink>
                             </td>
 
-                            <td className="min-w-[60px] px-2 py-2 text-center">
+                            <td className={`min-w-[60px] ${spacing.tableCell} text-center`}>
                               <div className="flex justify-center">
                                 <RoundLink
                                   chainId={round.chain_id}
@@ -538,7 +540,7 @@ const Dashboard: React.FC = () => {
                               </div>
                             </td>
 
-                            <td className="min-w-[80px] px-2 py-2 text-center">
+                            <td className={`min-w-[80px] ${spacing.tableCell} text-center`}>
                               <TokenPairDisplay
                                 fromToken={(() => {
                                   // Use the from_token object directly if it exists (new API structure)
@@ -559,7 +561,7 @@ const Dashboard: React.FC = () => {
                               />
                             </td>
 
-                            <td className="min-w-[80px] px-2 py-2 text-center">
+                            <td className={`min-w-[80px] ${spacing.tableCell} text-center`}>
                               {(() => {
                                 const auctionLiveData = liveData?.[round.auction];
                                 const currentPrice = auctionLiveData?.amountNeeded;
@@ -595,7 +597,7 @@ const Dashboard: React.FC = () => {
                               })()}
                             </td>
 
-                            <td className="min-w-[80px] px-2 py-2 text-center">
+                            <td className={`min-w-[80px] ${spacing.tableCell} text-center`}>
                               {(() => {
                                 const auctionLiveData = liveData?.[round.auction];
                                 const availableAmount = auctionLiveData?.available;
@@ -679,7 +681,7 @@ const Dashboard: React.FC = () => {
                               </div>
                             </td>
 
-                            <td className="min-w-[100px] px-2 py-2 text-center">
+                            <td className={`min-w-[100px] ${spacing.tableCell} text-center`}>
                               {/* Always show progress bar for active rounds */}
                               <div className="min-w-[100px] sm:min-w-[120px]">
                                 <StackedProgressMeter
@@ -692,7 +694,7 @@ const Dashboard: React.FC = () => {
                               </div>
                             </td>
 
-                            <td className="min-w-[80px] px-2 py-2 text-center">
+                            <td className={`min-w-[80px] ${spacing.tableCell} text-center`}>
                               {timeRemaining > 0 ? (
                                 <div>
                                   <div className="font-medium text-white text-xs sm:text-base">
@@ -749,7 +751,7 @@ const Dashboard: React.FC = () => {
             <>
               {recentTakes && recentTakes.length > 0 ? (
                 <>
-                  <div className="overflow-hidden">
+                  <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                       <thead className="bg-gray-800">
                         <tr>
@@ -924,7 +926,7 @@ const Dashboard: React.FC = () => {
             <>
               {auctions && auctions.length > 0 ? (
                 <>
-                  <AuctionsTable auctions={auctions} />
+                  <AuctionsTable auctions={auctions} forceTableView={true} />
                   {(auctionsResponse?.total || 0) > (auctionsResponse?.per_page || auctionsPerPage) && (
                     <Pagination
                       currentPage={auctionsResponse?.page || auctionsPage}

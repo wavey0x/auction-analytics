@@ -211,6 +211,18 @@ class MulticallService {
 
       // Execute multicall
       const results = await this.multicall(chainId, contracts)
+      
+      // Log multicall results for debugging
+      console.log(`🔗 Multicall Results for chain ${chainId}:`, {
+        contractsCount: contracts.length,
+        resultsCount: results.length,
+        callMap,
+        results: results.map((result, i) => ({
+          call: callMap[i],
+          result: result?.toString(),
+          success: result !== null
+        }))
+      })
 
       // Group results by auction address
       const auctionData: Record<string, AuctionLiveData> = {}
@@ -233,6 +245,16 @@ class MulticallService {
           auctionData[auctionAddress].kickable = result != null ? BigInt(result.toString()) : undefined
         }
       }
+
+      // Log final processed auction data
+      console.log(`📊 Processed Auction Live Data for chain ${chainId}:`, 
+        Object.entries(auctionData).map(([address, data]) => ({
+          address: address.slice(0, 8) + '...',
+          available: data.available?.toString(),
+          amountNeeded: data.amountNeeded?.toString(),
+          kickable: data.kickable?.toString()
+        }))
+      )
 
       return auctionData
 

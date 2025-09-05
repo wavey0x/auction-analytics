@@ -12,6 +12,8 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '../lib/api'
 import { eventStreamService } from '../services/eventStreamService'
 import { rpcHealthMonitor } from '../lib/rpcHealthMonitor'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { getResponsiveSpacing, getResponsiveText } from '../utils/mobile'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -25,6 +27,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { customRpcWarning, dismissCustomRpcWarning, disableCustomRpc } = useUserSettings()
   const { addNotification } = useNotifications()
+  
+  // Mobile hooks
+  const isMobile = useIsMobile()
+  const spacing = getResponsiveSpacing(isMobile)
+  const textSize = getResponsiveText(isMobile)
 
   // Persist settings modal open state to survive refresh/HMR
   React.useEffect(() => {
@@ -107,12 +114,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-gray-950 flex flex-col">
       {/* Header */}
       <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
+        <div className={spacing.container}>
+          <div className={`flex ${isMobile ? 'h-6' : 'h-8'} items-center justify-between`}>
             {/* Logo */}
             <div className="flex items-center space-x-4">
               <Link to="/" className="flex items-center group" aria-label="AuctionAnalytics home">
-                <AppLogo iconPx={56} />
+                <AppLogo iconPx={isMobile ? 24 : 28} />
               </Link>
             </div>
 
@@ -139,8 +146,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Right side */}
             <div className="flex items-center">
-              <button onClick={() => setSettingsOpen(true)} className="p-2 text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 rounded-lg transition-colors" aria-label="Open settings">
-                <Settings className="h-5 w-5" />
+              <button 
+                onClick={() => setSettingsOpen(true)} 
+                className={`${isMobile ? 'p-0.5 min-h-[24px] min-w-[24px]' : 'p-0.5'} text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 rounded transition-colors flex items-center justify-center`} 
+                aria-label="Open settings"
+              >
+                <Settings className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
               </button>
             </div>
           </div>
@@ -149,14 +160,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Warning banner for custom RPC issues */}
       {customRpcWarning.visible && (
-        <div className="px-6 lg:px-8 mt-2">
-          <div className="flex items-start justify-between rounded-lg border border-yellow-700 bg-yellow-900/30 text-yellow-200 p-3">
-            <div className="text-sm">
+        <div className={`${spacing.container} mt-2`}>
+          <div className={`flex ${isMobile ? 'flex-col space-y-2' : 'items-start justify-between'} rounded-lg border border-yellow-700 bg-yellow-900/30 text-yellow-200 ${spacing.card}`}>
+            <div className={textSize.body}>
               <span className="font-medium">Custom RPC issue:</span> {customRpcWarning.message || 'The configured RPC appears to be failing.'}
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={disableCustomRpc} className="text-xs px-2 py-1 rounded bg-yellow-700/30 hover:bg-yellow-700/40 border border-yellow-700">Disable custom RPC</button>
-              <button onClick={dismissCustomRpcWarning} className="text-xs px-2 py-1 rounded hover:bg-yellow-700/20">Dismiss</button>
+            <div className={`flex items-center gap-2 ${isMobile ? 'justify-end' : ''}`}>
+              <button 
+                onClick={disableCustomRpc} 
+                className={`${textSize.caption} px-3 ${isMobile ? 'py-2 min-h-[44px]' : 'py-1'} rounded bg-yellow-700/30 hover:bg-yellow-700/40 border border-yellow-700 font-medium`}
+              >
+                Disable custom RPC
+              </button>
+              <button 
+                onClick={dismissCustomRpcWarning} 
+                className={`${textSize.caption} px-3 ${isMobile ? 'py-2 min-h-[44px]' : 'py-1'} rounded hover:bg-yellow-700/20 font-medium`}
+              >
+                Dismiss
+              </button>
             </div>
           </div>
         </div>
@@ -164,24 +185,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Main content */}
       <main className="flex-1">
-        <div className="px-6 py-8 pb-12 lg:px-8">
+        <div className={`${spacing.container} ${isMobile ? 'py-4 pb-8' : 'py-8 pb-8'}`}>
           {children}
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 border-t border-gray-800 bg-gray-900/80 backdrop-blur-xl py-2 z-40">
-        <div className="px-6 lg:px-8">
-          <div className="flex items-center justify-center text-xs text-gray-500">
-            <Link to="/status" className={`flex items-center gap-2 font-semibold ${healthColor} hover:opacity-90`}>
+      <footer className={`fixed bottom-0 left-0 right-0 border-t border-gray-800 bg-gray-900/80 backdrop-blur-xl ${isMobile ? 'py-1' : 'py-1'} z-40`}>
+        <div className={`px-4`}>
+          <div className={`flex items-center justify-center text-xs text-gray-500 space-x-3`}>
+            <Link to="/status" className={`flex items-center gap-1 font-medium ${healthColor} hover:opacity-90`}>
               <span className="relative inline-flex">
-                <span className={`absolute inline-flex h-2 w-2 rounded-full ${healthBg} opacity-50 animate-ping`}></span>
-                <span className={`relative inline-flex h-2 w-2 rounded-full ${healthBg}`}></span>
+                <span className={`absolute inline-flex h-1.5 w-1.5 rounded-full ${healthBg} opacity-50 animate-ping`}></span>
+                <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${healthBg}`}></span>
               </span>
               <span>{healthLabel}</span>
             </Link>
 
-            <span className="mx-3">|</span>
+            <span>|</span>
 
             <Link 
               to="/api-docs" 

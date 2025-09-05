@@ -19,6 +19,10 @@ import InternalLink from './InternalLink'
 import TokenPairDisplay from './TokenPairDisplay'
 import { useKickableStatus } from '../hooks/useKickableStatus'
 import { getChainDisplay } from '../lib/chainData'
+import ResponsiveTable from './ResponsiveTable'
+import AuctionCardMobile from './AuctionCardMobile'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { getResponsiveSpacing } from '../utils/mobile'
 
 // Status configuration with colors and labels
 const statusConfig = {
@@ -46,12 +50,15 @@ export type AuctionStatus = 'active' | 'inactive' | 'kickable'
 
 interface AuctionsTableProps {
   auctions: AuctionListItem[]
+  forceTableView?: boolean // Force table view even on mobile
 }
 
 type SortField = 'address' | 'status' | 'decay_rate' | 'update_interval' | 'last_kicked'
 type SortDirection = 'asc' | 'desc'
 
-const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
+const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [], forceTableView = false }) => {
+  const isMobile = useIsMobile()
+  const spacing = getResponsiveSpacing(isMobile)
   const [search, setSearch] = useState('')
   const [tokenFilter, setTokenFilter] = useState('')
   const [tokenSearch, setTokenSearch] = useState('')
@@ -302,17 +309,209 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
       <ArrowDown className="h-3 w-3 text-primary-400" />
   }
 
+  // Mobile card list
+  const mobileContent = (
+    <div className="space-y-3">
+      {filteredAndSorted.map((auction) => (
+        <AuctionCardMobile
+          key={`${auction?.address}-${auction?.chain_id}-${auction?.current_round?.round_id || 'no-round'}`}
+          auction={auction}
+          kickableData={kickableData}
+        />
+      ))}
+    </div>
+  );
+
+  // Desktop table
+  const desktopContent = (
+    <div className="overflow-x-auto">
+      <table className="table">
+        <thead className="bg-gray-800">
+          <tr>
+            <th className="text-center w-[22px] min-w-[22px] max-w-[22px] px-0"><span className="sr-only">Chain</span></th>
+            <th 
+              className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
+              onClick={() => handleSort('address')}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <span>Address</span>
+                <SortIcon field="address" />
+              </div>
+            </th>
+            <th className="text-center">Round</th>
+            <th className="text-center">Tokens</th>
+            <th 
+              className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
+              onClick={() => handleSort('status')}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <span>Status</span>
+                <SortIcon field="status" />
+              </div>
+            </th>
+            <th 
+              className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
+              onClick={() => handleSort('decay_rate')}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <span>Decay Rate</span>
+                <SortIcon field="decay_rate" />
+              </div>
+            </th>
+            <th 
+              className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
+              onClick={() => handleSort('update_interval')}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <span>Update Interval</span>
+                <SortIcon field="update_interval" />
+              </div>
+            </th>
+            <th 
+              className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
+              onClick={() => handleSort('last_kicked')}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <span>Last Round</span>
+                <SortIcon field="last_kicked" />
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredAndSorted.map((auction) => {
+            const currentRound = auction.current_round
+            
+            return (
+              <tr key={`${auction?.address}-${auction?.chain_id}-${auction?.current_round?.round_id || 'no-round'}`} className="group">
+                <td className="w-[22px] min-w-[22px] max-w-[22px] px-0 text-center">
+                  <div className="flex justify-center">
+                    <ChainIcon 
+                      chainId={auction?.chain_id || 31337} 
+                      size="xs"
+                      showName={false}
+                    />
+                  </div>
+                </td>
+                <td>
+                  <AddressLink
+                    address={auction?.address || ''}
+                    chainId={auction?.chain_id || 1}
+                    type="auction"
+                    className="text-primary-400"
+                  />
+                </td>
+                
+                <td>
+                  {currentRound ? (
+                    <InternalLink
+                      to={`/round/${auction?.chain_id}/${auction?.address}/${currentRound?.round_id}`}
+                      variant="round"
+                    >
+                      R{currentRound.round_id}
+                    </InternalLink>
+                  ) : (
+                    <span className="text-gray-500 text-sm">—</span>
+                  )}
+                </td>
+                
+                <td>
+                  <TokenPairDisplay
+                    fromToken={
+                      <TokensList 
+                        tokens={auction.from_tokens || []}
+                        maxDisplay={2}
+                        tokenClassName="text-gray-300 font-medium"
+                      />
+                    }
+                    toToken={auction.want_token?.symbol || '—'}
+                  />
+                </td>
+                
+                <td>
+                  {(() => {
+                    const isActive = auction.current_round?.is_active || false
+                    const isKickable = kickableData[auction.address]?.isKickable || false
+                    const kickableCount = kickableData[auction.address]?.totalKickableCount || 0
+                    
+                    // Determine all applicable statuses with ACTIVE prioritized at top
+                    const statuses: AuctionStatus[] = []
+                    if (isActive) statuses.push('active')
+                    if (isKickable) statuses.push('kickable')
+                    if (statuses.length === 0) statuses.push('inactive')
+                    
+                    return (
+                      <div className="flex flex-col space-y-1">
+                        {statuses.map((status) => {
+                          const config = statusConfig[status]
+                          return (
+                            <div key={status} className="flex items-center space-x-2">
+                              <div className={`h-2 w-2 rounded-full ${config.dotColor} ${config.animated ? 'animate-pulse' : ''}`}></div>
+                              <span className={`text-sm font-medium ${config.textColor}`}>
+                                {config.label}
+                                {status === 'kickable' && kickableCount > 0 && (
+                                  <span className="text-xs ml-1">({kickableCount})</span>
+                                )}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+                </td>
+                
+                <td>
+                  <div className="flex items-center space-x-1 text-sm">
+                    <TrendingDown className="h-3 w-3 text-gray-400" />
+                    <span className="font-medium">
+                      {auction.decay_rate !== undefined && auction.decay_rate !== null ? 
+                        `${(auction.decay_rate * 100).toFixed(2)}%` : 
+                        'N/A'
+                      }
+                    </span>
+                  </div>
+                </td>
+                
+                <td className="text-center">
+                  <div className="flex items-center justify-center text-sm">
+                    <span className="font-medium">
+                      {auction.update_interval || 0}s
+                    </span>
+                  </div>
+                </td>
+                
+                <td>
+                  {auction?.last_kicked ? (
+                    <span 
+                      className="text-sm text-gray-400"
+                      title={new Date(auction.last_kicked).toLocaleString()}
+                    >
+                      {formatTimeAgo(new Date(auction.last_kicked!).getTime() / 1000)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500 text-sm">—</span>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
-      {/* Centered filter group */}
-      <div className="flex justify-center">
+    <div className={spacing.section}>
+      {/* Filters - Mobile optimized */}
+      <div className={`flex justify-center ${spacing.container}`}>
         <div className="flex flex-wrap gap-2 items-center justify-center max-w-4xl">
           <div className="relative w-full sm:w-60">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search addresses, tokens..."
-              className="w-full pl-9 pr-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className={`w-full pl-9 pr-3 ${isMobile ? 'py-3 min-h-[44px]' : 'py-1.5'} bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary-500`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -320,7 +519,7 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
           
           <div className="relative w-full sm:w-48" ref={tokenDropdownRef}>
             <div
-              className="flex items-center justify-between w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-sm cursor-pointer focus-within:ring-1 focus-within:ring-primary-500"
+              className={`flex items-center justify-between w-full px-2 ${isMobile ? 'py-3 min-h-[44px]' : 'py-1.5'} bg-gray-800 border border-gray-700 rounded text-sm cursor-pointer focus-within:ring-1 focus-within:ring-primary-500`}
               onClick={() => setTokenDropdownOpen(!tokenDropdownOpen)}
             >
               <span className="truncate">
@@ -380,7 +579,7 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
           {/* Status Filter Dropdown */}
           <div className="relative w-full sm:w-40" ref={statusDropdownRef}>
             <div
-              className="flex items-center justify-between w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-sm cursor-pointer focus-within:ring-1 focus-within:ring-primary-500"
+              className={`flex items-center justify-between w-full px-2 ${isMobile ? 'py-3 min-h-[44px]' : 'py-1.5'} bg-gray-800 border border-gray-700 rounded text-sm cursor-pointer focus-within:ring-1 focus-within:ring-primary-500`}
               onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
             >
               <span className="truncate">
@@ -439,7 +638,7 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setChainDropdownOpen(!chainDropdownOpen)}
-              className="w-full sm:w-36 px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 flex items-center justify-between"
+              className={`w-full sm:w-36 px-2 ${isMobile ? 'py-3 min-h-[44px]' : 'py-1.5'} bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 flex items-center justify-between`}
             >
               <div className="flex items-center space-x-2">
                 {chainFilter ? (
@@ -488,192 +687,23 @@ const AuctionsTable: React.FC<AuctionsTableProps> = ({ auctions = [] }) => {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-gray-800">
-
-      {/* Table */}
-      <div>
-        <div className="overflow-x-auto">
-          <table className="table">
-            <thead className="bg-gray-800">
-              <tr>
-                <th className="text-center w-[22px] min-w-[22px] max-w-[22px] px-0"><span className="sr-only">Chain</span></th>
-                <th 
-                  className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
-                  onClick={() => handleSort('address')}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <span>Address</span>
-                    <SortIcon field="address" />
-                  </div>
-                </th>
-                <th className="text-center">Round</th>
-                <th className="text-center">Tokens</th>
-                <th 
-                  className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
-                  onClick={() => handleSort('status')}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <span>Status</span>
-                    <SortIcon field="status" />
-                  </div>
-                </th>
-                <th 
-                  className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
-                  onClick={() => handleSort('decay_rate')}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <span>Decay Rate</span>
-                    <SortIcon field="decay_rate" />
-                  </div>
-                </th>
-                <th 
-                  className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
-                  onClick={() => handleSort('update_interval')}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <span>Update Interval</span>
-                    <SortIcon field="update_interval" />
-                  </div>
-                </th>
-                <th 
-                  className="cursor-pointer select-none hover:bg-gray-700/50 text-center"
-                  onClick={() => handleSort('last_kicked')}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <span>Last Round</span>
-                    <SortIcon field="last_kicked" />
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAndSorted.map((auction) => {
-                const currentRound = auction.current_round
-                
-                return (
-                  <tr key={`${auction?.address}-${auction?.chain_id}-${auction?.current_round?.round_id || 'no-round'}`} className="group">
-                    <td className="w-[22px] min-w-[22px] max-w-[22px] px-0 text-center">
-                      <div className="flex justify-center">
-                        <ChainIcon 
-                          chainId={auction?.chain_id || 31337} 
-                          size="xs"
-                          showName={false}
-                        />
-                      </div>
-                    </td>
-                    <td>
-                      <AddressLink
-                        address={auction?.address || ''}
-                        chainId={auction?.chain_id || 1}
-                        type="auction"
-                        className="text-primary-400"
-                      />
-                    </td>
-                    
-                    <td>
-                      {currentRound ? (
-                        <InternalLink
-                          to={`/round/${auction?.chain_id}/${auction?.address}/${currentRound?.round_id}`}
-                          variant="round"
-                        >
-                          R{currentRound.round_id}
-                        </InternalLink>
-                      ) : (
-                        <span className="text-gray-500 text-sm">—</span>
-                      )}
-                    </td>
-                    
-                    <td>
-                      <TokenPairDisplay
-                        fromToken={
-                          <TokensList 
-                            tokens={auction.from_tokens || []}
-                            maxDisplay={2}
-                            tokenClassName="text-gray-300 font-medium"
-                          />
-                        }
-                        toToken={auction.want_token?.symbol || '—'}
-                      />
-                    </td>
-                    
-                    <td>
-                      {(() => {
-                        const isActive = auction.current_round?.is_active || false
-                        const isKickable = kickableData[auction.address]?.isKickable || false
-                        const kickableCount = kickableData[auction.address]?.totalKickableCount || 0
-                        
-                        // Determine all applicable statuses with ACTIVE prioritized at top
-                        const statuses: AuctionStatus[] = []
-                        if (isActive) statuses.push('active')
-                        if (isKickable) statuses.push('kickable')
-                        if (statuses.length === 0) statuses.push('inactive')
-                        
-                        return (
-                          <div className="flex flex-col space-y-1">
-                            {statuses.map((status) => {
-                              const config = statusConfig[status]
-                              return (
-                                <div key={status} className="flex items-center space-x-2">
-                                  <div className={`h-2 w-2 rounded-full ${config.dotColor} ${config.animated ? 'animate-pulse' : ''}`}></div>
-                                  <span className={`text-sm font-medium ${config.textColor}`}>
-                                    {config.label}
-                                    {status === 'kickable' && kickableCount > 0 && (
-                                      <span className="text-xs ml-1">({kickableCount})</span>
-                                    )}
-                                  </span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )
-                      })()}
-                    </td>
-                    
-                    <td>
-                      <div className="flex items-center space-x-1 text-sm">
-                        <TrendingDown className="h-3 w-3 text-gray-400" />
-                        <span className="font-medium">
-                          {auction.decay_rate !== undefined && auction.decay_rate !== null ? 
-                            `${(auction.decay_rate * 100).toFixed(2)}%` : 
-                            'N/A'
-                          }
-                        </span>
-                      </div>
-                    </td>
-                    
-                    <td className="text-center">
-                      <div className="flex items-center justify-center text-sm">
-                        <span className="font-medium">
-                          {auction.update_interval || 0}s
-                        </span>
-                      </div>
-                    </td>
-                    
-                    <td>
-                      {auction?.last_kicked ? (
-                        <span 
-                          className="text-sm text-gray-400"
-                          title={new Date(auction.last_kicked).toLocaleString()}
-                        >
-                          {formatTimeAgo(new Date(auction.last_kicked!).getTime() / 1000)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-500 text-sm">—</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+      <div className={`overflow-hidden rounded-lg border border-gray-800 ${isMobile && !forceTableView ? 'border-0' : ''}`}>
+        {forceTableView ? (
+          <div className="overflow-x-auto">
+            {desktopContent}
+          </div>
+        ) : (
+          <ResponsiveTable
+            desktopContent={desktopContent}
+            mobileContent={mobileContent}
+          />
+        )}
 
         {filteredAndSorted.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <p>No auctions match the current filters</p>
           </div>
         )}
-      </div>
       </div>
     </div>
   )

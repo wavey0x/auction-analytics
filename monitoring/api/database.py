@@ -1477,7 +1477,7 @@ class DatabaseDataProvider(DataProvider):
             if not auction_data:
                 raise Exception(f"Auction {auction_address} not found in database")
 
-                # Use actual database data from vw_auctions
+            # Use actual database data from vw_auctions
                 want_token = TokenInfo(
                     address=auction_data.want_token,
                     symbol=auction_data.want_token_symbol if hasattr(auction_data, 'want_token_symbol') else "Unknown",
