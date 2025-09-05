@@ -144,15 +144,20 @@ const TakerDetails: React.FC = () => {
                 title="Click to toggle between takes and volume ranking"
               >
                 <Trophy className="h-4 w-4 text-yellow-400" />
-                <span className="text-yellow-400 font-bold">
-                  #
-                  {rankingMode === "takes"
-                    ? takerDetails.rank_by_takes
-                    : takerDetails.rank_by_volume || "—"}
-                </span>
-                <span className="text-sm text-gray-400">
-                  {rankingMode === "takes" ? "by takes" : "by USD"}
-                </span>
+                <div className="flex items-baseline space-x-2">
+                  <span className="text-yellow-400 font-bold">
+                    #
+                    {rankingMode === "takes"
+                      ? takerDetails.rank_by_takes
+                      : takerDetails.rank_by_volume || "—"}
+                  </span>
+                  {takerDetails.total_takers && (
+                    <span className="text-sm text-gray-500">/ {takerDetails.total_takers}</span>
+                  )}
+                  <span className="text-sm text-gray-400">
+                    {rankingMode === "takes" ? "by takes" : "by USD"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

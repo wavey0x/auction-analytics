@@ -24,6 +24,7 @@ export interface TakerDetail {
   rank_by_takes: number
   rank_by_volume: number | null
   active_chains: number[]
+  total_takers?: number
   auction_breakdown: AuctionBreakdown[]
 }
 

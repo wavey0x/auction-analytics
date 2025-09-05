@@ -102,10 +102,34 @@ import time as _time
 # Lightweight, in-process caches for repeated calls
 _TABLES_CACHE: dict[str, float] = {}
 _TABLES_CACHE_TTL = 60.0  # seconds
+_ENRICHED_RELATION_CACHE: dict[str, float] = {}
+_ENRICHED_RELATION_TTL = 60.0  # seconds
 
 class DatabaseQueries:
     """Centralized database query methods for Auction structure"""
     
+    @staticmethod
+    async def _get_enriched_takes_relation(db: AsyncSession) -> str:
+        """Return name of enriched takes relation, preferring materialized view.
+
+        Checks for mv_takes_enriched via pg_matviews, else falls back to vw_takes_enriched.
+        Caches the result briefly to avoid repeated catalog lookups.
+        """
+        now = _time.time()
+        if _ENRICHED_RELATION_CACHE and now - next(iter(_ENRICHED_RELATION_CACHE.values())) < _ENRICHED_RELATION_TTL:
+            return next(iter(_ENRICHED_RELATION_CACHE.keys()))
+
+        rel = 'vw_takes_enriched'
+        try:
+            result = await db.execute(text("SELECT 1 FROM pg_matviews WHERE schemaname='public' AND matviewname='mv_takes_enriched'"))
+            if result.fetchone():
+                rel = 'mv_takes_enriched'
+        except Exception:
+            rel = 'vw_takes_enriched'
+
+        _ENRICHED_RELATION_CACHE.clear()
+        _ENRICHED_RELATION_CACHE[rel] = now
+        return rel
     
     @staticmethod
     async def get_auctions(db: AsyncSession, active_only: bool = False, chain_id: int = None, limit: int = None, offset: int = None):
@@ -542,7 +566,10 @@ class DatabaseQueries:
                     SELECT table_name 
                     FROM information_schema.tables 
                     WHERE table_schema = 'public' 
-                      AND table_name IN ('auctions', 'rounds', 'takes', 'tokens', 'vw_takes', 'vw_takes_enriched')
+                      AND table_name IN (
+                        'auctions','rounds','takes','tokens',
+                        'vw_takes','vw_takes_enriched','mv_takes_enriched'
+                      )
                 """)
                 result = await db.execute(table_check_query)
                 existing_tables = {row[0] for row in result.fetchall()}
@@ -884,11 +911,46 @@ class DatabaseQueries:
             logger.error(f"Taker details primary view failed; falling back to on-the-fly computation: {e}")
             taker_data = None
         
+        # If we have data but it lacks ranks, compute them
+        if taker_data:
+            data = dict(taker_data._mapping)
+            needs_ranks = ('rank_by_takes' not in data) or ('rank_by_volume' not in data) or (data.get('rank_by_takes') is None and data.get('rank_by_volume') is None)
+            try:
+                enriched = await DatabaseQueries._get_enriched_takes_relation(db)
+                ranks_q = text(f"""
+                    WITH base AS (
+                        SELECT LOWER(t.taker) AS taker,
+                               COUNT(*) AS total_takes,
+                               COALESCE(SUM(t.amount_taken_usd), 0) AS total_volume_usd
+                        FROM {enriched} t
+                        WHERE t.taker IS NOT NULL
+                        GROUP BY LOWER(t.taker)
+                    ), ranked AS (
+                        SELECT taker,
+                               total_takes,
+                               total_volume_usd,
+                               RANK() OVER (ORDER BY total_takes DESC) AS rank_by_takes,
+                               RANK() OVER (ORDER BY total_volume_usd DESC NULLS LAST) AS rank_by_volume
+                        FROM base
+                    )
+                    SELECT r.rank_by_takes, r.rank_by_volume, (SELECT COUNT(*) FROM base) AS total_takers
+                    FROM ranked r WHERE r.taker = LOWER(:taker)
+                """)
+                rk = await db.execute(ranks_q, {"taker": taker_address})
+                row = rk.fetchone()
+                if row:
+                    data['rank_by_takes'] = row.rank_by_takes
+                    data['rank_by_volume'] = row.rank_by_volume
+                    data['total_takers'] = int(row.total_takers or 0)
+                taker_data = type('Row', (), {'_mapping': data})  # minimal row-like wrapper
+            except Exception:
+                pass
+
         if not taker_data:
             enriched = await DatabaseQueries._get_enriched_takes_relation(db)
             # Fallback: compute directly from vw_takes_enriched if MV empty/not populated
-            fb_query = text("""
-                WITH base AS (
+            fb_query = text(f"""
+                WITH base_all AS (
                     SELECT 
                         LOWER(t.taker) AS taker,
                         COUNT(*) AS total_takes,
@@ -908,34 +970,42 @@ class DatabaseQueries:
                         COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '7 days'), 0) AS volume_last_7d,
                         COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days'), 0) AS volume_last_30d
                     FROM {enriched} t
-                    WHERE LOWER(t.taker) = LOWER(:taker)
+                    WHERE t.taker IS NOT NULL
                     GROUP BY LOWER(t.taker)
+                ), ranked AS (
+                    SELECT taker,
+                           RANK() OVER (ORDER BY total_takes DESC) AS rank_by_takes,
+                           RANK() OVER (ORDER BY total_volume_usd DESC NULLS LAST) AS rank_by_volume
+                    FROM base_all
+                ), one AS (
+                    SELECT * FROM base_all WHERE taker = LOWER(:taker)
                 )
                 SELECT 
-                    taker,
-                    total_takes,
-                    unique_auctions,
-                    unique_chains,
-                    total_volume_usd,
-                    avg_take_size_usd,
-                    first_take,
-                    last_take,
-                    active_chains,
-                    -- Ranks require global context; set NULL in fallback
-                    NULL::INTEGER AS rank_by_takes,
-                    NULL::INTEGER AS rank_by_volume,
-                    total_profit_usd,
-                    avg_profit_per_take_usd,
-                    CASE WHEN (profitable_takes + unprofitable_takes) > 0
-                         THEN profitable_takes::DECIMAL / (profitable_takes + unprofitable_takes) * 100
+                    o.taker,
+                    o.total_takes,
+                    o.unique_auctions,
+                    o.unique_chains,
+                    o.total_volume_usd,
+                    o.avg_take_size_usd,
+                    o.first_take,
+                    o.last_take,
+                    o.active_chains,
+                    r.rank_by_takes,
+                    r.rank_by_volume,
+                    o.total_profit_usd,
+                    o.avg_profit_per_take_usd,
+                    CASE WHEN (o.profitable_takes + o.unprofitable_takes) > 0
+                         THEN o.profitable_takes::DECIMAL / (o.profitable_takes + o.unprofitable_takes) * 100
                          ELSE NULL END AS success_rate_percent,
-                    takes_last_7d,
-                    takes_last_30d,
-                    volume_last_7d,
-                    volume_last_30d,
-                    profitable_takes,
-                    unprofitable_takes
-                FROM base
+                    o.takes_last_7d,
+                    o.takes_last_30d,
+                    o.volume_last_7d,
+                    o.volume_last_30d,
+                    o.profitable_takes,
+                    o.unprofitable_takes,
+                    (SELECT COUNT(*) FROM base_all) AS total_takers
+                FROM one o
+                LEFT JOIN ranked r ON r.taker = o.taker
             """)
             fb_res = await db.execute(fb_query, {"taker": taker_address})
             taker_data = fb_res.fetchone()

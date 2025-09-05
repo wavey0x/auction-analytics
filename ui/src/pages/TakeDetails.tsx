@@ -7,10 +7,7 @@ import {
   Fuel,
   TrendingUp,
   Clock,
-  AlertCircle,
-  Hash,
-  Zap,
-  Target
+  AlertCircle
 } from 'lucide-react'
 import { apiClient } from '../lib/api'
 import StatsCard from '../components/StatsCard'
@@ -21,6 +18,7 @@ import CollapsibleSection from '../components/CollapsibleSection'
 import KeyValueGrid from '../components/KeyValueGrid'
 import PriceComparisonTable from '../components/PriceComparisonTable'
 import TokenPairDisplay from '../components/TokenPairDisplay'
+import RoundTakeDisplay from '../components/RoundTakeDisplay'
 import TakerLink from '../components/TakerLink'
 import InternalLink from '../components/InternalLink'
 import StandardTxHashLink from '../components/StandardTxHashLink'
@@ -28,7 +26,8 @@ import AddressDisplay from '../components/AddressDisplay'
 import { 
   formatUSD, 
   formatReadableTokenAmount,
-  formatTimeAgo 
+  formatTimeAgo,
+  formatAddress
 } from '../lib/utils'
 
 const TakeDetails: React.FC = () => {
@@ -45,6 +44,9 @@ const TakeDetails: React.FC = () => {
     enabled: !!chainId && !!auctionAddress && !!roundId && !!takeSeq,
     refetchInterval: 5 * 60 * 1000 // Refetch every 5 minutes
   })
+
+  const [showGasUSD, setShowGasUSD] = React.useState(true)
+  const [showRelativeTime, setShowRelativeTime] = React.useState(true)
 
   if (isLoading) {
     return (
@@ -90,15 +92,7 @@ const TakeDetails: React.FC = () => {
         <div className="flex items-center space-x-4">
           <BackButton />
           <div className="flex items-center space-x-3">
-            <ChainIcon chainId={takeDetails.chain_id} size="sm" showName={false} />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-100">Take Details</h1>
-              <div className="flex items-center space-x-2 text-sm text-gray-400">
-                <span className="font-mono">{takeDetails.take_id}</span>
-                <span>•</span>
-                <span>Take #{takeDetails.take_seq} in Round {takeDetails.round_id}</span>
-              </div>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-100">Take Details</h1>
           </div>
         </div>
       </div>
@@ -113,15 +107,17 @@ const TakeDetails: React.FC = () => {
         />
         
         {hasGasData && (
-          <StatsCard
-            title="Gas Cost"
-            value={takeDetails.transaction_fee_usd 
-              ? formatUSD(takeDetails.transaction_fee_usd)
-              : `${takeDetails.transaction_fee_eth?.toFixed(6)} ETH`
-            }
-            icon={Fuel}
-            iconColor="text-orange-400"
-          />
+          <div onClick={() => setShowGasUSD(prev => !prev)} className="cursor-pointer">
+            <StatsCard
+              title="Gas Cost"
+              value={showGasUSD && takeDetails.transaction_fee_usd 
+                ? formatUSD(takeDetails.transaction_fee_usd)
+                : `${takeDetails.transaction_fee_eth?.toFixed(6)} ETH`
+              }
+              icon={Fuel}
+              iconColor="text-gray-400"
+            />
+          </div>
         )}
         
         <StatsCard
@@ -131,58 +127,71 @@ const TakeDetails: React.FC = () => {
           iconColor={takeDetails.pnl_analysis.base_pnl >= 0 ? "text-green-400" : "text-red-400"}
         />
         
-        <StatsCard
-          title="Time Ago"
-          value={formatTimeAgo(new Date(takeDetails.timestamp).getTime() / 1000)}
-          icon={Clock}
-          iconColor="text-purple-400"
-        />
+        <div onClick={() => setShowRelativeTime(prev => !prev)} className="cursor-pointer">
+          <StatsCard
+            title="Time"
+            value={showRelativeTime
+              ? formatTimeAgo(new Date(takeDetails.timestamp).getTime() / 1000)
+              : new Date(takeDetails.timestamp).toLocaleString()
+            }
+            icon={Clock}
+            iconColor="text-gray-400"
+          />
+        </div>
       </div>
 
       {/* Core Information */}
       <div className="card">
-        <h3 className="text-lg font-semibold mb-4">Transaction Details</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Take Info</h3>
+          <ChainIcon chainId={takeDetails.chain_id} size="sm" showName={false} />
+        </div>
         <KeyValueGrid items={[
-          { label: "Transaction Hash", value: <StandardTxHashLink txHash={takeDetails.tx_hash} chainId={takeDetails.chain_id} /> },
-          { label: "Block Number", value: <span className="font-mono">#{takeDetails.block_number.toLocaleString()}</span> },
-          { label: "Timestamp", value: new Date(takeDetails.timestamp).toLocaleString() },
+          { label: "Pair", value: <span className="font-mono">{(takeDetails.from_token_symbol || 'FROM')} → {(takeDetails.to_token_symbol || 'TO')}</span> },
           { label: "Taker", value: <TakerLink takerAddress={takeDetails.taker} chainId={takeDetails.chain_id} /> },
-          { label: "Auction", value: <InternalLink to={`/auction/${takeDetails.chain_id}/${takeDetails.auction_address}`} variant="address">{takeDetails.auction_address}</InternalLink> },
-          { label: "Round", value: <InternalLink to={`/round/${takeDetails.chain_id}/${takeDetails.auction_address}/${takeDetails.round_id}`} variant="round">R{takeDetails.round_id}</InternalLink> },
-          { label: "Take Sequence", value: `Take ${takeDetails.take_seq}${takeDetails.round_total_takes ? ` of ${takeDetails.round_total_takes}` : ''}` }
+          { label: "Transaction Hash", value: <StandardTxHashLink txHash={takeDetails.tx_hash} chainId={takeDetails.chain_id} /> },
+          { label: "Auction", value: (
+            <InternalLink 
+              to={`/auction/${takeDetails.chain_id}/${takeDetails.auction_address}`} 
+              variant="address"
+              address={takeDetails.auction_address}
+              chainId={takeDetails.chain_id}
+            >
+              {formatAddress(takeDetails.auction_address)}
+            </InternalLink>
+          ) },
+          { label: "Round | Take", value: (
+            <RoundTakeDisplay
+              chainId={takeDetails.chain_id}
+              auctionAddress={takeDetails.auction_address}
+              roundId={takeDetails.round_id}
+              takeSeq={takeDetails.take_seq}
+              size="sm"
+            />
+          ) },
+          { label: "Time", value: (
+            <button className="text-left" onClick={() => setShowRelativeTime(prev => !prev)}>
+              {showRelativeTime
+                ? `${formatTimeAgo(new Date(takeDetails.timestamp).getTime() / 1000)}`
+                : new Date(takeDetails.timestamp).toLocaleString()
+              }
+            </button>
+          ) }
         ]} />
       </div>
 
       {/* Token Exchange Details */}
       <CollapsibleSection title="Token Exchange" defaultOpen={true}>
-        <div className="space-y-6">
-          {/* Token Pair Display */}
-          <div className="flex items-center justify-center">
-            <TokenPairDisplay 
-              fromToken={takeDetails.from_token_symbol || 'FROM'}
-              toToken={takeDetails.to_token_symbol || 'TO'}
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* From Token */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* From Token (Taker Received) */}
             <div className="card bg-gray-800/50">
-              <h4 className="font-semibold mb-3 text-primary-400">Tokens Received</h4>
-              <div className="space-y-2">
+              <h4 className="font-semibold mb-2 text-gray-200">Taker Received</h4>
+              <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Amount:</span>
                   <span className="font-mono">{formatReadableTokenAmount(takeDetails.amount_taken)} {takeDetails.from_token_symbol}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Token:</span>
-                  <AddressDisplay address={takeDetails.from_token} />
-                </div>
-                {typeof takeDetails.from_token_price_usd === 'number' && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">From Token USD:</span>
-                    <span className="font-mono">{formatUSD(takeDetails.from_token_price_usd)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between">
                   <span className="text-gray-400">USD Value:</span>
                   <span className="font-mono">{formatUSD(takeDetails.pnl_analysis.take_value_usd)}</span>
@@ -190,22 +199,20 @@ const TakeDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* To Token */}
+            {/* To Token (Auction Received) */}
             <div className="card bg-gray-800/50">
-              <h4 className="font-semibold mb-3 text-orange-400">Tokens Paid</h4>
-              <div className="space-y-2">
+              <h4 className="font-semibold mb-2 text-gray-200">Auction Received</h4>
+              <div className="space-y-1">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Amount:</span>
                   <span className="font-mono">{formatReadableTokenAmount(takeDetails.amount_paid)} {takeDetails.to_token_symbol}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Token:</span>
-                  <AddressDisplay address={takeDetails.to_token} />
-                </div>
-                {typeof takeDetails.want_token_price_usd === 'number' && (
+                {typeof (takeDetails as any).want_token_price_usd === 'number' && (
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Want Token USD:</span>
-                    <span className="font-mono">{formatUSD(takeDetails.want_token_price_usd)}</span>
+                    <span className="text-gray-400">USD Value:</span>
+                    <span className="font-mono">
+                      {formatUSD(parseFloat(takeDetails.amount_paid) * (takeDetails as any).want_token_price_usd)}
+                    </span>
                   </div>
                 )}
               </div>
@@ -228,89 +235,49 @@ const TakeDetails: React.FC = () => {
 
       {/* Gas Analysis */}
       {hasGasData && (
-        <CollapsibleSection title="Gas & Transaction Costs" defaultOpen={true}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {takeDetails.gas_price && (
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Zap className="h-4 w-4 text-yellow-400" />
-                  <span className="font-medium">Gas Price</span>
+        <CollapsibleSection title="Transaction cost" defaultOpen={true}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(() => {
+              const baseOrGas = (typeof takeDetails.base_fee === 'number' ? takeDetails.base_fee : undefined) ??
+                               (typeof takeDetails.gas_price === 'number' ? takeDetails.gas_price : undefined);
+              return typeof baseOrGas === 'number' ? (
+                <div className="bg-gray-800/50 p-2 rounded border border-gray-800">
+                  <div className="text-xs text-gray-400 mb-1">Base Fee</div>
+                  <div className="font-mono text-sm">{baseOrGas.toFixed(2)} Gwei</div>
                 </div>
-                <div className="font-mono text-lg">{takeDetails.gas_price.toFixed(2)} Gwei</div>
+              ) : null;
+            })()}
+            {typeof takeDetails.priority_fee === 'number' && (
+              <div className="bg-gray-800/50 p-2 rounded border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Priority Fee</div>
+                <div className="font-mono text-sm">{takeDetails.priority_fee.toFixed(4)} Gwei</div>
               </div>
             )}
-
-            {takeDetails.base_fee && (
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Hash className="h-4 w-4 text-blue-400" />
-                  <span className="font-medium">Base Fee</span>
-                </div>
-                <div className="font-mono text-lg">{takeDetails.base_fee.toFixed(2)} Gwei</div>
-                <div className="text-xs text-gray-500">EIP-1559</div>
+            {typeof takeDetails.gas_used === 'number' && (
+              <div className="bg-gray-800/50 p-2 rounded border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Gas Used</div>
+                <div className="font-mono text-sm">{takeDetails.gas_used.toLocaleString()}</div>
               </div>
             )}
-
-            {takeDetails.priority_fee && (
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Target className="h-4 w-4 text-green-400" />
-                  <span className="font-medium">Priority Fee</span>
-                </div>
-                <div className="font-mono text-lg">{takeDetails.priority_fee.toFixed(2)} Gwei</div>
-                <div className="text-xs text-gray-500">Miner tip</div>
-              </div>
-            )}
-
-            {takeDetails.gas_used && (
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Activity className="h-4 w-4 text-purple-400" />
-                  <span className="font-medium">Gas Used</span>
-                </div>
-                <div className="font-mono text-lg">{takeDetails.gas_used.toLocaleString()}</div>
-              </div>
-            )}
-
-            {takeDetails.transaction_fee_eth && (
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Fuel className="h-4 w-4 text-orange-400" />
-                  <span className="font-medium">Total Fee</span>
-                </div>
-                <div className="font-mono text-lg">{takeDetails.transaction_fee_eth.toFixed(6)} ETH</div>
-                {takeDetails.transaction_fee_usd && (
-                  <div className="text-sm text-gray-400">{formatUSD(takeDetails.transaction_fee_usd)}</div>
+            {typeof takeDetails.transaction_fee_usd === 'number' && (
+              <div className="bg-gray-800/50 p-2 rounded border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Total Fee</div>
+                <div className="font-mono text-sm">{formatUSD(takeDetails.transaction_fee_usd)}</div>
+                {typeof takeDetails.transaction_fee_eth === 'number' && (
+                  <div className="text-xs text-gray-500 font-mono">{takeDetails.transaction_fee_eth.toFixed(6)} ETH</div>
                 )}
               </div>
             )}
-
             {takeDetails.pnl_analysis.take_value_usd > 0 && takeDetails.transaction_fee_usd && (
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <DollarSign className="h-4 w-4 text-red-400" />
-                  <span className="font-medium">Fee %</span>
-                </div>
-                <div className="font-mono text-lg">
-                  {((takeDetails.transaction_fee_usd / takeDetails.pnl_analysis.take_value_usd) * 100).toFixed(3)}%
-                </div>
-                <div className="text-xs text-gray-500">of take value</div>
+              <div className="bg-gray-800/50 p-2 rounded border border-gray-800">
+                <div className="text-xs text-gray-400 mb-1">Fee %</div>
+                <div className="font-mono text-sm">{((takeDetails.transaction_fee_usd / takeDetails.pnl_analysis.take_value_usd) * 100).toFixed(3)}%</div>
               </div>
             )}
           </div>
         </CollapsibleSection>
       )}
 
-      {/* Auction Context */}
-      <CollapsibleSection title="Auction Context">
-        <KeyValueGrid items={[
-          ...(takeDetails.auction_decay_rate ? [{ label: "Decay Rate", value: `${(takeDetails.auction_decay_rate * 100).toFixed(3)}% per step` }] : []),
-          ...(takeDetails.auction_update_interval ? [{ label: "Update Interval", value: `${takeDetails.auction_update_interval} seconds` }] : []),
-          ...(takeDetails.round_total_takes ? [{ label: "Total Takes in Round", value: takeDetails.round_total_takes.toString() }] : []),
-          ...(takeDetails.round_available_before ? [{ label: "Available Before Take", value: formatReadableTokenAmount(takeDetails.round_available_before) }] : []),
-          ...(takeDetails.round_available_after ? [{ label: "Available After Take", value: formatReadableTokenAmount(takeDetails.round_available_after) }] : []),
-        ]} />
-      </CollapsibleSection>
     </div>
   )
 }
