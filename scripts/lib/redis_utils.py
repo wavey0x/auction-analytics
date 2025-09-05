@@ -45,7 +45,9 @@ def build_redis_url(
         # Password only auth
         auth = f":{pwd}@"
 
-    return f"{scheme}://{auth}{host}:{port}/{db}"
+    url = f"{scheme}://{auth}{host}:{port}/{db}"
+    print(f"Attempting to connect to Redis with: {url}")
+    return url
 
 
 def get_redis_client(decode_responses: bool = True, role: str | None = None):
