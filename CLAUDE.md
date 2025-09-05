@@ -825,6 +825,58 @@ cd ui && npm install
 npm run lint
 ```
 
+### Brownie Network Configuration Issues
+
+#### Common Error: URL Concatenation
+```
+❌ Failed to initialize Brownie network: 401 Client Error: Unauthorized for url: https://mainnet.infura.io/v3/https://guest:guest@eth.wavey.info
+```
+
+**Cause**: Brownie is concatenating the global Infura template with your custom RPC URL. This happens when:
+1. Service runs as user without home directory (e.g., `auction` user in systemd)
+2. Global Brownie config (~/.brownie/network-config.yaml) is unavailable
+3. Brownie falls back to default network names that reference Infura templates
+
+**Solution**: Use custom network names to avoid conflicts:
+
+```yaml
+# brownie-config.yaml
+wavey-mainnet:  # Custom name avoids 'mainnet' conflicts
+  host: ${ETHEREUM_RPC_URL}
+  chainid: 1
+  gas_limit: 12000000
+  gas_price: 20000000000
+  required_confs: 2
+```
+
+**Update service commands** to use custom network:
+```bash
+# Instead of --network mainnet
+./run_price_service.sh --pricer ypm --network wavey-mainnet
+```
+
+#### Missing Network Configuration
+```
+❌ Failed to initialize Brownie network: 'electro'
+```
+
+**Solution**: Ensure all network names used in scripts are defined in `brownie-config.yaml`:
+```yaml
+electro:
+  host: ${ETHEREUM_RPC_URL}
+  chainid: 1
+  gas_limit: 12000000
+  gas_price: 20000000000
+  required_confs: 2
+```
+
+#### Python Command Issues
+```
+python: command not found
+```
+
+**Solution**: Use `python3` consistently in all shell scripts. Update any script that uses `python` to use `python3`.
+
 ## Recent Major Updates
 
 ### Naming Consistency (2024)
@@ -882,6 +934,14 @@ npm run lint
 - ✅ **API Endpoints Updated**: Removed start_block fields from /chains and /network/{id} endpoints
 - ✅ **TimescaleDB Removal**: Completely removed TimescaleDB extension, converted to standard PostgreSQL
 - ✅ **Documentation Updates**: Updated all docs to reflect simplified configuration and standard PostgreSQL usage
+
+### Brownie Network Configuration Issues (September 2025)
+
+- ✅ **Brownie Network Hierarchy Fix**: Resolved issue where systemd services (running as `auction` user without home directory) fall back to global Brownie configurations that reference Infura templates
+- ✅ **URL Concatenation Bug**: Fixed issue where Brownie was concatenating Infura URL template (`https://mainnet.infura.io/v3/$WEB3_INFURA_PROJECT_ID`) with custom RPC URL values, resulting in malformed URLs
+- ✅ **Custom Network Names**: Added custom network names (`wavey-mainnet`) to avoid conflicts with global Brownie network configurations
+- ✅ **Python Command Standardization**: Fixed all `python` command references to `python3` in shell scripts for compatibility
+- ✅ **Environment Variable Fixes**: Added proper environment variable handling for custom RPC endpoints
 
 ### Code Quality Improvements
 
