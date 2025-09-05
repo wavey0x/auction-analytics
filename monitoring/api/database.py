@@ -668,6 +668,7 @@ class DatabaseQueries:
     @staticmethod
     async def get_recent_takes(db: AsyncSession, limit: int = 100, chain_id: int = None):
         """Get recent takes across all auctions from enriched view"""
+        enriched = await DatabaseQueries._get_enriched_takes_relation(db)
         chain_filter = "WHERE chain_id = :chain_id" if chain_id else ""
         query = text(f"""
             SELECT 
@@ -700,7 +701,7 @@ class DatabaseQueries:
                 amount_paid_usd,
                 price_differential_usd,
                 price_differential_percent
-            FROM vw_takes_enriched
+            FROM {enriched}
             {chain_filter}
             ORDER BY timestamp DESC
             LIMIT :limit
@@ -760,12 +761,19 @@ class DatabaseQueries:
             takers = [dict(row._mapping) for row in result.fetchall()]
             count_query = text(f"SELECT COUNT(*) FROM {summary_relation} {chain_filter}")
             total = (await db.execute(count_query)).scalar()
-        except Exception:
+        except Exception as e:
+            # Rollback on failure before computing fallback
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            logger.warning(f"Primary takers summary view failed; falling back to compute: {e}")
             takers = []
             total = 0
 
-        # Fallback: If MV exists but is empty (or unavailable), compute on-the-fly from vw_takes_enriched
+        # Fallback: If MV exists but is empty (or unavailable), compute on-the-fly from enriched view
         if not takers and (not total or total == 0):
+            enriched = await DatabaseQueries._get_enriched_takes_relation(db)
             fallback_cte = f"""
                 WITH taker_base AS (
                     SELECT 
@@ -786,7 +794,7 @@ class DatabaseQueries:
                         COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days'), 0) AS volume_last_30d,
                         COUNT(*) FILTER (WHERE t.price_differential_usd > 0) AS profitable_takes,
                         COUNT(*) FILTER (WHERE t.price_differential_usd < 0) AS unprofitable_takes
-                    FROM vw_takes_enriched t
+                    FROM {enriched} t
                     WHERE t.taker IS NOT NULL
                     {('AND t.chain_id = :chain_id') if chain_id else ''}
                     GROUP BY LOWER(t.taker)
@@ -854,28 +862,9 @@ class DatabaseQueries:
     async def get_taker_details(db: AsyncSession, taker_address: str):
         """Get comprehensive taker details using materialized view"""
         # Get taker data from materialized view
+        # Use flexible shape to avoid column drift issues across envs
         query = text("""
-            SELECT 
-                taker,
-                total_takes,
-                unique_auctions,
-                unique_chains,
-                total_volume_usd,
-                avg_take_size_usd,
-                first_take,
-                last_take,
-                active_chains,
-                rank_by_takes,
-                rank_by_volume,
-                total_profit_usd,
-                avg_profit_per_take_usd,
-                success_rate_percent,
-                takes_last_7d,
-                takes_last_30d,
-                volume_last_7d,
-                volume_last_30d,
-                profitable_takes,
-                unprofitable_takes
+            SELECT *
             FROM vw_takers_summary
             WHERE LOWER(taker) = LOWER(:taker)
         """)
@@ -884,6 +873,11 @@ class DatabaseQueries:
             result = await db.execute(query, {"taker": taker_address})
             taker_data = result.fetchone()
         except Exception as e:
+            # Ensure we rollback the failed transaction before attempting fallback queries
+            try:
+                await db.rollback()
+            except Exception:
+                pass
             logger.error(f"Taker details primary view failed; falling back to on-the-fly computation: {e}")
             taker_data = None
         
@@ -911,6 +905,7 @@ class DatabaseQueries:
                         COALESCE(SUM(t.amount_taken_usd) FILTER (WHERE t.timestamp >= NOW() - INTERVAL '30 days'), 0) AS volume_last_30d
                     FROM vw_takes_enriched t
                     WHERE LOWER(t.taker) = LOWER(:taker)
+                    GROUP BY LOWER(t.taker)
                 )
                 SELECT 
                     taker,
@@ -975,7 +970,7 @@ class DatabaseQueries:
         query = text("""
             SELECT 
                 take_id,
-                auction_address as auction,
+                auction_address,
                 chain_id,
                 round_id,
                 take_seq,
@@ -1015,14 +1010,20 @@ class DatabaseQueries:
             text("SELECT COUNT(*) FROM vw_takes_enriched WHERE LOWER(taker) = LOWER(:taker)"),
             {"taker": taker_address}
         )
-        total = count_result.scalar()
-        
+        total = int(count_result.scalar() or 0)
+        total_pages = (total + limit - 1) // limit if total > 0 else 1
+
         return {
             "takes": takes,
-            "total": total or 0,
-            "page": page,
+            # Keep legacy keys
+            "total": total,
             "per_page": limit,
-            "has_next": (page * limit) < (total or 0)
+            "has_next": (page * limit) < total,
+            # Also provide UI-expected keys
+            "total_count": total,
+            "limit": limit,
+            "page": page,
+            "total_pages": total_pages,
         }
 
     @staticmethod

@@ -118,7 +118,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className={`flex ${isMobile ? 'h-6' : 'h-8'} items-center justify-between`}>
             {/* Logo */}
             <div className="flex items-center space-x-4">
-              <Link to="/" className="flex items-center group" aria-label="AuctionAnalytics home">
+              <Link to="/" className="flex items-center group" aria-label="AuctionExplorer home">
                 <AppLogo iconPx={isMobile ? 24 : 28} />
               </Link>
             </div>

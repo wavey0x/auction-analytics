@@ -13,7 +13,7 @@ const AppLogo: React.FC<AppLogoProps> = ({
   className,
   accent = '#58aaff',
   text = '#cfe3ff',
-  title = 'AuctionAnalytics',
+  title = 'AuctionExplorer',
   iconPx = 56,
 }) => {
   const wrapCls = `inline-flex items-center gap-0 leading-none ${className || ''}`
@@ -26,7 +26,7 @@ const AppLogo: React.FC<AppLogoProps> = ({
         style={{ fontSize: '1.44em', lineHeight: 1 }}
       >
         <span style={{ color: accent }} className="mr-2">AUCTION</span>
-        <span style={{ color: text }} className="font-bold">ANALYTICS</span>
+        <span style={{ color: text }} className="font-bold">EXPLORER</span>
       </span>
     </div>
   )

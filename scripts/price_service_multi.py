@@ -90,6 +90,9 @@ class UnifiedPricingService:
 
         self.db_conn = self._init_db()
         self.db_conn.autocommit = True
+        
+        # Rate limiting tracking
+        self.last_api_calls = {}  # service -> last_call_timestamp
 
         # Initialize source clients
         self.ypm = None
@@ -157,6 +160,53 @@ class UnifiedPricingService:
 
     def _normalize_addr(self, addr: str) -> str:
         return addr if addr is None else addr.strip()
+        
+    def _calculate_backoff_delay(self, retry_count: int) -> float:
+        """Calculate exponential backoff delay: 5s, 10s, 20s (max)"""
+        if retry_count <= 0:
+            return 0
+        return min(20.0, 5.0 * (2 ** (retry_count - 1)))
+    
+    def _enforce_rate_limit(self, service: str, min_interval: float = 1.0) -> None:
+        """Ensure minimum interval between API calls for a service"""
+        now = time.time()
+        last_call = self.last_api_calls.get(service, 0)
+        time_since_last = now - last_call
+        
+        if time_since_last < min_interval:
+            delay = min_interval - time_since_last
+            logger.debug(f"Rate limiting {service}: waiting {delay:.2f}s")
+            time.sleep(delay)
+        
+        self.last_api_calls[service] = time.time()
+    
+    def _log_exceeded_retry_limit(self) -> None:
+        """Log requests that have exceeded the maximum retry limit for monitoring"""
+        try:
+            with self.db_conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, token_address, chain_id, block_number, 
+                           COALESCE(retry_count, 0) as retry_count, 
+                           created_at, error_message
+                    FROM price_requests
+                    WHERE status = 'pending' AND COALESCE(retry_count, 0) >= 3
+                    ORDER BY created_at ASC
+                    LIMIT 10
+                    """
+                )
+                exceeded_requests = cur.fetchall()
+                
+                if exceeded_requests:
+                    logger.warning(f"🚫 Found {len(exceeded_requests)} requests exceeding retry limit (3):")
+                    for req in exceeded_requests:
+                        logger.warning(
+                            f"   Request {req['id']}: {req['token_address'][:8]}... "
+                            f"block {req['block_number']} (retries: {req['retry_count']}) "
+                            f"- {req.get('error_message', 'No error message')[:50]}..."
+                        )
+        except Exception as e:
+            logger.error(f"Failed to check exceeded retry requests: {e}")
 
     def _get_pending_requests(self, limit: int = 50) -> List[Dict[str, Any]]:
         try:
@@ -165,9 +215,10 @@ class UnifiedPricingService:
                     """
                     SELECT id, chain_id, block_number, token_address,
                            request_type, auction_address, round_id, txn_timestamp,
-                           COALESCE(NULLIF(price_source, ''), 'all') AS price_source
+                           COALESCE(NULLIF(price_source, ''), 'all') AS price_source,
+                           COALESCE(retry_count, 0) as retry_count
                     FROM price_requests
-                    WHERE status = 'pending'
+                    WHERE status = 'pending' AND COALESCE(retry_count, 0) < 3
                     ORDER BY created_at ASC
                     LIMIT %s
                     """,
@@ -259,6 +310,7 @@ class UnifiedPricingService:
         if not self.ypm:
             return None, None, "ypricemagic unavailable"
         try:
+            self._enforce_rate_limit("ypm", 0.5)  # 0.5s between YPM calls
             price, ts, err = self.ypm.fetch_token_price(token, block_number)
             if price is None:
                 return None, None, err or "ypricemagic fetch failed"
@@ -270,6 +322,7 @@ class UnifiedPricingService:
         if not self.enso:
             return None, "Enso client unavailable"
         try:
+            self._enforce_rate_limit("enso", 1.0)  # 1s between Enso calls
             # EnsoPriceService exposes get_token_price_via_route(token, chain)
             price = self.enso.get_token_price_via_route(token, chain_id)  # type: ignore
             if price is None:
@@ -282,6 +335,7 @@ class UnifiedPricingService:
         if not self.odos:
             return None, "Odos client unavailable"
         try:
+            self._enforce_rate_limit("odos", 1.0)  # 1s between Odos calls
             price = self.odos.fetch_token_price(token, chain_id)  # type: ignore
             if price is None:
                 return None, "Odos returned no price"
@@ -381,6 +435,14 @@ class UnifiedPricingService:
         block_number = int(req['block_number'])
         token = self._normalize_addr(req['token_address'])
         txn_ts = req.get('txn_timestamp')
+        retry_count = req.get('retry_count', 0)
+
+        # Apply exponential backoff delay for retries
+        if retry_count > 0:
+            backoff_delay = self._calculate_backoff_delay(retry_count)
+            if backoff_delay > 0:
+                logger.info(f"[{request_id}] Retry #{retry_count}: applying {backoff_delay}s backoff delay")
+                time.sleep(backoff_delay)
 
         # Fetch from sources
         results = self._fan_out_fetches(req)
@@ -416,6 +478,10 @@ class UnifiedPricingService:
         try:
             while True:
                 pending = self._get_pending_requests()
+                
+                # Check for requests that have exceeded retry limit and log them
+                self._log_exceeded_retry_limit()
+                
                 if not pending:
                     logger.debug("No pending price requests")
                 for req in pending:

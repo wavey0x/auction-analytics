@@ -42,7 +42,7 @@ const AuctionCard: React.FC<AuctionCardProps> = ({ auction }) => {
                 {formatAddress(auction.address, 8)}
               </h3>
               <p className="text-xs text-gray-500">
-                Auction Analytics
+                Auction Explorer
               </p>
             </div>
           </div>

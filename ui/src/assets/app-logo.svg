@@ -1,9 +1,9 @@
-<!-- AuctionAnalytics: FULL LOCKUP (tight crop) -->
+<!-- AuctionExplorer: FULL LOCKUP (tight crop) -->
 <svg
   xmlns="http://www.w3.org/2000/svg"
   viewBox="0 0 720 160"
   role="img"
-  aria-label="AuctionAnalytics"
+  aria-label="AuctionExplorer"
   style="--aa-accent:#58aaff; --aa-text:#cfe3ff;"
 >
   <!-- Wordmark (monospace feel, accent on AUCTION) -->
@@ -25,7 +25,7 @@
       letter-spacing="2.5"
       font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono','Courier New', monospace"
       fill="var(--aa-text)"
-    >ANALYTICS</text>
+    >EXPLORER</text>
   </g>
 
   <!-- Mark: bracketed square with gavel + bars -->

@@ -1,4 +1,4 @@
-# Auction Analytics UI
+# Auction Explorer UI
 
 Modern React dashboard for monitoring Dutch auction activity with real-time updates and dark theme aesthetics.
 
