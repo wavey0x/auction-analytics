@@ -14,6 +14,7 @@ import random
 from datetime import datetime
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
+from urllib.parse import urlparse, urlunparse
 
 # Load environment variables early so helper can build URL from parts
 load_dotenv()
@@ -22,13 +23,46 @@ class EventFirer:
     """Interactive Redis event firing tool"""
     
     def __init__(self, redis_url: str = None):
-        # Build URL with optional auth; prefer publisher role
+        # Build URL with optional auth; prefer explicit publisher creds even if REDIS_URL is set
+        def _compose_url_with_publisher(env_url: Optional[str]) -> str:
+            pub_user = os.getenv('REDIS_PUBLISHER_USER', '').strip()
+            pub_pass = os.getenv('REDIS_PUBLISHER_PASS', '').strip()
+            host = os.getenv('REDIS_HOST', 'localhost').strip()
+            port = os.getenv('REDIS_PORT', '6379').strip()
+            db = os.getenv('REDIS_DB', '0').strip()
+            tls = (os.getenv('REDIS_TLS') or 'false').strip().lower() in ('1','true','yes','on')
+            scheme = 'rediss' if tls else 'redis'
+
+            # If an env URL exists, reuse its host/port/db/scheme unless overridden, and inject auth when missing
+            if env_url:
+                try:
+                    parsed = urlparse(env_url)
+                    use_scheme = parsed.scheme or scheme
+                    use_host = parsed.hostname or host
+                    use_port = parsed.port or int(port)
+                    use_db = (parsed.path[1:] if parsed.path.startswith('/') else parsed.path) or db
+                    if pub_user or pub_pass:
+                        netloc = f"{pub_user}:{pub_pass}@{use_host}:{use_port}"
+                    else:
+                        netloc = parsed.netloc or f"{use_host}:{use_port}"
+                    return urlunparse((use_scheme, netloc, f"/{use_db}", '', '', ''))
+                except Exception:
+                    pass
+            # Fallback: compose from parts
+            auth = f"{pub_user}:{pub_pass}@" if (pub_user or pub_pass) else ''
+            return f"{scheme}://{auth}{host}:{port}/{db}"
+
         if not redis_url:
-            try:
-                from scripts.lib.redis_utils import build_redis_url
-                redis_url = build_redis_url(role='publisher')
-            except Exception:
-                redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+            # If REDIS_PUBLISHER_* present, ensure credentials are injected even if REDIS_URL is set
+            if os.getenv('REDIS_PUBLISHER_USER') or os.getenv('REDIS_PUBLISHER_PASS'):
+                redis_url = _compose_url_with_publisher(os.getenv('REDIS_URL'))
+            else:
+                try:
+                    from scripts.lib.redis_utils import build_redis_url
+                    redis_url = build_redis_url(role='publisher')
+                except Exception:
+                    redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+
         self.redis_url = redis_url
         self.redis = None
         self.stream_key = os.getenv('REDIS_STREAM_KEY', 'events')
@@ -78,6 +112,9 @@ class EventFirer:
             safe_url = self.redis_url
             if '@' in safe_url:
                 safe_url = safe_url.replace(safe_url.split('://',1)[1].split('@',1)[0], '***')
+            # Warn if URL lacks credentials but ACL likely requires auth
+            if '@' not in self.redis_url and (os.getenv('REDIS_PUBLISHER_USER') or os.getenv('REDIS_PUBLISHER_PASS')):
+                print("⚠️  No credentials in Redis URL; attempting unauthenticated connection may fail with ACL.")
             print(f"✅ Redis client configured: {safe_url}")
         except Exception as e:
             print(f"❌ Redis connection failed: {e}")
