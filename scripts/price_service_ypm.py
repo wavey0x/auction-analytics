@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 class YPriceMagicService:
     """Price service using ypricemagic to fetch historical token prices"""
     
-    def __init__(self, network_name: str = "electro", poll_interval: int = 5, prioritize_failed: bool = False, once: bool = False):
+    def __init__(self, network_name: str = "mainnet", poll_interval: int = 5, prioritize_failed: bool = False, once: bool = False):
         self.db_conn = None
         self.brownie_network = network_name
         self.poll_interval = max(1, int(poll_interval))
@@ -568,7 +568,7 @@ def main():
     try:
         # Parse command line arguments
         parser = argparse.ArgumentParser(description='ypricemagic Price Service')
-        parser.add_argument('--network', default='electro', help='Brownie network name to connect')
+        parser.add_argument('--network', default='mainnet', help='Brownie network name to connect')
         parser.add_argument('--retry-failed', action='store_true', help='Prioritize failed requests first')
         parser.add_argument('--poll-interval', type=int, default=5, help='Poll interval in seconds when idle')
         parser.add_argument('--once', action='store_true', help='Run a single cycle and exit')

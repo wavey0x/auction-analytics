@@ -249,8 +249,9 @@ const Dashboard: React.FC = () => {
   const { data: takersTotal } = useQuery({
     queryKey: ["takersCount"],
     queryFn: async () => {
-      const response = await apiClient.getTakers({ limit: 1 });
-      return response.total;
+      const response = await apiClient.getTakers({ limit: 1 }).catch(() => null);
+      // Ensure we never return undefined to React Query
+      return response?.total ?? 0;
     },
     staleTime: 30000,
   });
@@ -542,8 +543,12 @@ const Dashboard: React.FC = () => {
                             <td>
                               <TokenPairDisplay
                                 fromToken={(() => {
-                                  // Find the specific token for this round if from_token field exists
-                                  if (round.from_token && round.from_tokens) {
+                                  // Use the from_token object directly if it exists (new API structure)
+                                  if (round.from_token && typeof round.from_token === 'object' && 'symbol' in round.from_token) {
+                                    return round.from_token.symbol;
+                                  }
+                                  // Legacy fallback: find token by address if from_token is a string
+                                  if (round.from_token && typeof round.from_token === 'string' && round.from_tokens) {
                                     const specificToken = round.from_tokens.find(t => 
                                       t.address.toLowerCase() === round.from_token.toLowerCase()
                                     );
@@ -602,10 +607,20 @@ const Dashboard: React.FC = () => {
                                   const availableValue = Number(availableAmount) / Math.pow(10, 18);
                                   
                                   // Get the correct token symbol for this round
-                                  const specificToken = round.from_tokens?.find(t => 
-                                    t.address.toLowerCase() === round.from_token?.toLowerCase()
-                                  );
-                                  const tokenSymbol = specificToken?.symbol || "Token";
+                                  const tokenSymbol = (() => {
+                                    // Use the from_token object directly if it exists (new API structure)
+                                    if (round.from_token && typeof round.from_token === 'object' && 'symbol' in round.from_token) {
+                                      return round.from_token.symbol;
+                                    }
+                                    // Legacy fallback: find token by address if from_token is a string
+                                    if (round.from_token && typeof round.from_token === 'string' && round.from_tokens) {
+                                      const specificToken = round.from_tokens.find(t => 
+                                        t.address.toLowerCase() === round.from_token.toLowerCase()
+                                      );
+                                      return specificToken?.symbol;
+                                    }
+                                    return "Token";
+                                  })();
                                   
                                   return (
                                     <div className="text-sm">
@@ -621,10 +636,20 @@ const Dashboard: React.FC = () => {
                                   // Fallback to database amount if available
                                   
                                   // Get the correct token symbol for this round
-                                  const specificToken = round.from_tokens?.find(t => 
-                                    t.address.toLowerCase() === round.from_token?.toLowerCase()
-                                  );
-                                  const tokenSymbol = specificToken?.symbol || "Token";
+                                  const tokenSymbol = (() => {
+                                    // Use the from_token object directly if it exists (new API structure)
+                                    if (round.from_token && typeof round.from_token === 'object' && 'symbol' in round.from_token) {
+                                      return round.from_token.symbol;
+                                    }
+                                    // Legacy fallback: find token by address if from_token is a string
+                                    if (round.from_token && typeof round.from_token === 'string' && round.from_tokens) {
+                                      const specificToken = round.from_tokens.find(t => 
+                                        t.address.toLowerCase() === round.from_token.toLowerCase()
+                                      );
+                                      return specificToken?.symbol;
+                                    }
+                                    return "Token";
+                                  })();
                                   
                                   return (
                                     <div className="text-sm">

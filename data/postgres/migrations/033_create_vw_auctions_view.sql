@@ -15,13 +15,11 @@ SELECT
     a.chain_id,
     a.want_token,
     a.deployer,
-    a.price_update_interval,
+    a.update_interval,
     a.auction_length,
     a.starting_price,
     a.version,
     a.decay_rate,
-    a.update_interval,
-    a.discovered_at,
     
     -- Want token metadata
     wt.symbol as want_token_symbol,
@@ -30,19 +28,17 @@ SELECT
     
     -- Current round information (latest round for each auction)
     cr.round_id as current_round_id,
-    cr.is_active as has_active_round,
+    CASE 
+        WHEN (cr.kicked_at + 86400) > EXTRACT(EPOCH FROM NOW())::BIGINT THEN TRUE ELSE FALSE 
+    END as has_active_round,
     cr.available_amount as current_available,
-    cr.kicked_at as last_kicked_timestamp,
-    EXTRACT(EPOCH FROM cr.kicked_at)::BIGINT as last_kicked,
+    to_timestamp(cr.kicked_at) as last_kicked_timestamp,
+    cr.kicked_at as last_kicked,
     cr.initial_available,
     
-    -- Round timing
-    cr.kicked_at as round_start,
-    CASE 
-        WHEN cr.kicked_at IS NOT NULL AND a.auction_length IS NOT NULL 
-        THEN cr.kicked_at + INTERVAL '1 second' * a.auction_length
-        ELSE NULL 
-    END as round_end,
+    -- Round timing (convert epoch to timestamp)
+    to_timestamp(COALESCE(cr.round_start, cr.kicked_at)) as round_start,
+    to_timestamp(COALESCE(cr.round_start, cr.kicked_at) + 86400) as round_end,
     
     -- Progress calculation
     CASE 
@@ -52,11 +48,8 @@ SELECT
     END as progress_percentage,
     
     -- Takes count for current round
-    COALESCE(takes_count.current_round_takes, 0) as current_round_takes,
-    
-    -- From tokens JSON (array of enabled tokens)
-    from_tokens_agg.from_tokens_json
-    
+    COALESCE(takes_count.current_round_takes, 0) as current_round_takes
+
 FROM auctions a
 
 -- Join want token metadata
@@ -71,8 +64,9 @@ LEFT JOIN LATERAL (
         r.kicked_at,
         r.initial_available,
         r.available_amount,
-        r.is_active,
-        r.from_token
+        r.from_token,
+        r.round_start,
+        r.round_end
     FROM rounds r
     WHERE LOWER(r.auction_address) = LOWER(a.auction_address) 
         AND r.chain_id = a.chain_id
@@ -89,39 +83,11 @@ LEFT JOIN LATERAL (
         AND t.round_id = cr.round_id
 ) takes_count ON true
 
--- Aggregate enabled from_tokens into JSON array
-LEFT JOIN LATERAL (
-    SELECT 
-        COALESCE(
-            json_agg(
-                json_build_object(
-                    'address', et.from_token,
-                    'symbol', COALESCE(ft.symbol, 'Unknown'),
-                    'name', COALESCE(ft.name, 'Unknown'),
-                    'decimals', COALESCE(ft.decimals, 18),
-                    'chain_id', et.chain_id
-                )
-                ORDER BY et.enabled_at
-            ), 
-            '[]'::json
-        ) as from_tokens_json
-    FROM enabled_tokens et
-    LEFT JOIN tokens ft 
-        ON LOWER(et.from_token) = LOWER(ft.address) 
-        AND et.chain_id = ft.chain_id
-    WHERE LOWER(et.auction_address) = LOWER(a.auction_address)
-        AND et.chain_id = a.chain_id
-) from_tokens_agg ON true;
+;
 
 -- Create index on the view for performance
-CREATE INDEX idx_vw_auctions_chain_active 
-    ON auctions (chain_id) 
-    WHERE EXISTS (
-        SELECT 1 FROM rounds r 
-        WHERE LOWER(r.auction_address) = LOWER(auctions.auction_address) 
-            AND r.chain_id = auctions.chain_id 
-            AND r.is_active = true
-    );
+CREATE INDEX IF NOT EXISTS idx_vw_auctions_chain 
+    ON auctions (chain_id);
 
 -- Verification query
 DO $$ 

@@ -1,0 +1,65 @@
+<!-- AuctionAnalytics: FULL LOCKUP (tight crop) -->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 720 160"
+  role="img"
+  aria-label="AuctionAnalytics"
+  style="--aa-accent:#58aaff; --aa-text:#cfe3ff;"
+>
+  <!-- Wordmark (monospace feel, accent on AUCTION) -->
+  <g transform="translate(168,28)">
+    <text
+      x="0"
+      y="52"
+      font-size="56"
+      font-weight="800"
+      letter-spacing="2.5"
+      font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono','Courier New', monospace"
+      fill="var(--aa-accent)"
+    >AUCTION</text>
+    <text
+      x="0"
+      y="116"
+      font-size="56"
+      font-weight="700"
+      letter-spacing="2.5"
+      font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono','Courier New', monospace"
+      fill="var(--aa-text)"
+    >ANALYTICS</text>
+  </g>
+
+  <!-- Mark: bracketed square with gavel + bars -->
+  <g transform="translate(16,16)">
+    <!-- outer bracket square -->
+    <rect x="0" y="0" width="128" height="128" rx="10"
+          fill="none" stroke="var(--aa-accent)" stroke-width="6"/>
+    <rect x="10" y="10" width="108" height="108" rx="8"
+          fill="none" stroke="var(--aa-text)" stroke-width="2"/>
+
+    <!-- bars (analytics) -->
+    <g transform="translate(24,28)" fill="var(--aa-accent)">
+      <rect x="0"   y="56" width="16" height="36" rx="3"/>
+      <rect x="28"  y="32" width="16" height="60" rx="3"/>
+      <rect x="56"  y="8"  width="16" height="84" rx="3"/>
+    </g>
+
+    <!-- gavel -->
+    <g transform="translate(24,24)">
+      <!-- base -->
+      <rect x="0" y="84" width="64" height="10" rx="5" fill="var(--aa-text)"/>
+      <!-- handle -->
+      <rect x="56" y="24" width="18" height="78" rx="6"
+            fill="var(--aa-accent)"
+            transform="rotate(-35 65 63)"/>
+      <!-- head -->
+      <rect x="20" y="36" width="40" height="26" rx="6"
+            fill="var(--aa-accent)"
+            transform="rotate(-35 40 49)"/>
+      <!-- cap -->
+      <rect x="9" y="22" width="22" height="12" rx="4"
+            fill="var(--aa-accent)"
+            transform="rotate(-35 20 28)"/>
+    </g>
+  </g>
+</svg>
+

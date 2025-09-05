@@ -1,0 +1,17 @@
+[Unit]
+Description=Auction Price Service
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=auction
+Group=auction
+WorkingDirectory=/opt/auction-app
+EnvironmentFile=/opt/auction-app/.env
+ExecStart=/opt/auction-app/scripts/run_price_service.sh --pricer all --parallel
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

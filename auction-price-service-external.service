@@ -1,0 +1,46 @@
+[Unit]
+Description=Auction Analytics Price Service (External APIs: Odos + ENSO)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=forking
+User=wavey
+Group=wavey
+WorkingDirectory=/Users/wavey/yearn/auction-analytics
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/Users/wavey/yearn/auction-analytics
+
+# Run external API pricers separately  
+ExecStart=/bin/bash -c 'source venv/bin/activate && python scripts/price_service_odos.py --poll-interval 10 --recency-minutes 10 > logs/price_service_odos.log 2>&1 & python scripts/price_service_enso.py --poll-interval 10 --recency-minutes 10 > logs/price_service_enso.log 2>&1'
+
+# Restart policy
+Restart=always
+RestartSec=15
+StartLimitBurst=3
+
+# Resource limits
+LimitNOFILE=512
+MemoryHigh=512M
+MemoryMax=1G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auction-price-external
+
+# Process management
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=45
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/Users/wavey/yearn/auction-analytics/logs
+
+[Install]
+WantedBy=multi-user.target

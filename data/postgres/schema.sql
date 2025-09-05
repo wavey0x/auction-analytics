@@ -905,7 +905,7 @@ SELECT
     a.chain_id,
     a.want_token,
     a.deployer,
-    a.price_update_interval,
+    a.update_interval,
     a.auction_length,
     a.starting_price,
     a.auction_version as version,

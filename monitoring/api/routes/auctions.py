@@ -171,7 +171,7 @@ async def get_auction(auction: str):
         from_tokens=mock_tokens,
         want_token=TokenInfo(address="0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", symbol="USDT", name="Tether USD", decimals=6),
         parameters=AuctionParameters(
-            price_update_interval=60,
+            update_interval=60,
             step_decay="995000000000000000000000000",
             auction_length=3600,
             starting_price="1000000",

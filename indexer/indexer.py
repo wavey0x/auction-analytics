@@ -492,10 +492,10 @@ class AuctionIndexer:
             try:
                 # Try different function names for different contract versions
                 try:
-                    price_update_interval = auction_contract.functions.STEP_DURATION().call()
+                    update_interval = auction_contract.functions.STEP_DURATION().call()
                 except:
                     # Fallback for legacy contracts - use default 36 seconds
-                    price_update_interval = 36
+                    update_interval = 36
                 
                 try:
                     auction_length = auction_contract.functions.auctionLength().call()
@@ -576,7 +576,7 @@ class AuctionIndexer:
                             starting_price = EXCLUDED.starting_price,
                             governance = EXCLUDED.governance
                     """, (
-                        auction_address, chain_id, price_update_interval,
+                        auction_address, chain_id, update_interval,
                         decay_rate, auction_length, want_token,
                         deployer, timestamp, factory_address,
                         '0.1.0' if factory_type == 'modern' else '0.0.1',
@@ -600,7 +600,7 @@ class AuctionIndexer:
                                 'version': '0.1.0' if factory_type == 'modern' else '0.0.1',
                                 'want_token': want_token,
                                 'factory_address': factory_address,
-                                'update_interval': price_update_interval,
+                                'update_interval': update_interval,
                                 'decay_rate': float(decay_rate),
                                 'auction_length': auction_length,
                                 'starting_price': float(starting_price),
@@ -838,23 +838,57 @@ class AuctionIndexer:
                     """, (auction_address, chain_id, timestamp_unix, timestamp_unix))
                     round_data = cursor.fetchone()
                 
+                # Get want_token for this auction first
+                cursor.execute("""
+                    SELECT want_token FROM auctions 
+                    WHERE LOWER(auction_address) = LOWER(%s) AND chain_id = %s
+                """, (auction_address, chain_id))
+                
+                auction_data = cursor.fetchone()
+                if not auction_data:
+                    logger.error(f"❌ Auction {auction_address} not found in database for take processing")
+                    return
+                    
+                want_token = (event.get('wantToken') or auction_data['want_token'])
+                txn_hash = self._normalize_transaction_hash(event['transactionHash'])
+                
+                # FIXED: Idempotency check BEFORE any sequence calculations
+                cursor.execute(
+                    "SELECT 1 FROM takes WHERE chain_id=%s AND transaction_hash=%s AND log_index=%s LIMIT 1",
+                    (chain_id, self._normalize_transaction_hash(event['transactionHash']), event['logIndex'])
+                )
+                if cursor.fetchone():
+                    logger.debug(f"Duplicate take skipped: tx={txn_hash} log_index={event['logIndex']}")
+                    return
+
                 if round_data:
                     round_id = round_data['round_id']
                     kicked_at = round_data['kicked_at']
                     
-                    # Compute take_seq by counting existing takes for this round
+                    # FIXED: Use MAX(take_seq) + 1 for better reliability and account for buffered takes
                     cursor.execute("""
-                        SELECT COUNT(*) as current_takes 
+                        SELECT COALESCE(MAX(take_seq), 0) as max_seq
                         FROM takes 
                         WHERE LOWER(auction_address) = LOWER(%s) 
                         AND chain_id = %s 
                         AND round_id = %s
                     """, (auction_address, chain_id, round_id))
-                    current_takes_result = cursor.fetchone()
-                    current_takes = current_takes_result['current_takes'] if current_takes_result else 0
-                    take_seq = current_takes + 1
+                    max_seq_result = cursor.fetchone()
+                    max_seq = max_seq_result['max_seq'] if max_seq_result else 0
                     
-                    logger.debug(f"✅ Found active round {round_id} for take at {auction_address[:5]}..{auction_address[-4:]} (take_time={timestamp_unix}, current_takes={current_takes})")
+                    # Also account for buffered takes for this round
+                    buffered_takes_count = 0
+                    for buffered_take in self.takes_buffer:
+                        # Buffer format: (take_id, auction_address, chain_id, round_id, take_seq, ...)
+                        if (buffered_take[1].lower() == auction_address.lower() and 
+                            buffered_take[2] == chain_id and 
+                            buffered_take[3] == round_id):
+                            buffered_takes_count += 1
+                    
+                    take_seq = max_seq + buffered_takes_count + 1
+                    
+                    logger.debug(f"✅ Found active round {round_id} for take at {auction_address[:5]}..{auction_address[-4:]} (take_time={timestamp_unix}, max_seq={max_seq}, buffered={buffered_takes_count}, new_seq={take_seq})")
+                    
                     # Handle both datetime and Unix timestamp formats for kicked_at
                     if isinstance(kicked_at, (int, float)):
                         seconds_from_start = int(timestamp_unix - kicked_at)
@@ -888,28 +922,6 @@ class AuctionIndexer:
                 amount_taken_dec = amount_taken if isinstance(amount_taken, Decimal) else Decimal(str(amount_taken))
                 amount_paid_dec = amount_paid if isinstance(amount_paid, Decimal) else Decimal(str(amount_paid))
                 price = Decimal(0) if amount_taken_dec == 0 else (amount_paid_dec / amount_taken_dec)
-                
-                # Get want_token for this auction first
-                cursor.execute("""
-                    SELECT want_token FROM auctions 
-                    WHERE LOWER(auction_address) = LOWER(%s) AND chain_id = %s
-                """, (auction_address, chain_id))
-                
-                auction_data = cursor.fetchone()
-                if not auction_data:
-                    logger.error(f"❌ Auction {auction_address} not found in database for take processing")
-                    return
-                    
-                want_token = (event.get('wantToken') or auction_data['want_token'])
-                txn_hash = self._normalize_transaction_hash(event['transactionHash'])
-                # Idempotency: skip if this (chain_id, tx, log_index) already recorded
-                cursor.execute(
-                    "SELECT 1 FROM takes WHERE chain_id=%s AND transaction_hash=%s AND log_index=%s LIMIT 1",
-                    (chain_id, self._normalize_transaction_hash(event['transactionHash']), event['logIndex'])
-                )
-                if cursor.fetchone():
-                    logger.debug(f"Duplicate take skipped: tx={txn_hash} log_index={event['logIndex']}")
-                    return
 
                 # Get gas metrics for this transaction
                 w3 = self.web3_connections[chain_id]

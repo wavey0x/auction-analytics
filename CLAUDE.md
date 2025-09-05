@@ -330,11 +330,20 @@ docker exec auction_postgres psql -U postgres -d auction_dev -c "SELECT COUNT(*)
 **CRITICAL FOR AI ASSISTANTS**: When working with this codebase, pay special attention to database user consistency:
 
 - **Always use `postgres` user** for all development database connections in this project
-- **Never suggest mixing `postgres` and `wavey` users** - this causes connection failures
+- **Never suggest mixing `postgres` and `wavey` users** - this causes connection failures and is the #1 source of confusion
 - **Always verify which user is configured** in `.env` files before suggesting database operations
 - **Reference the exact user account** when providing connection examples or troubleshooting
 - The `dev.sh` script automatically loads `DEV_DATABASE_URL=postgresql://postgres:password@localhost:5433/auction_dev`
 - All services (API, indexer, pricing) must use the same database user for consistency
+
+**Common LLM Mistakes to Avoid:**
+- ❌ Suggesting `wavey` user for database connections (this is the local system user, not database user)
+- ❌ Mixing connection strings with different users in same environment
+- ❌ Assuming `wavey` has database privileges when it doesn't exist as DB user
+- ❌ Providing psql commands with `-U wavey` instead of `-U postgres`
+- ✅ Always use `postgres` as the database username in development
+- ✅ Always use `localhost:5433` as the host:port (Docker mapped port)
+- ✅ Always use `auction_dev` as the database name in development
 
 This prevents the most common development issues and ensures all services can access shared database resources.
 
@@ -883,6 +892,14 @@ npm run lint
 - ✅ Eliminated YAML parsing errors with proper factory configuration
 - ✅ **Database Provider Implementation**: Real SQL queries replacing mock implementations
 - ✅ **Active Auction Filtering**: Changed from client-side to server-side filtering using API `status=active` parameter for better performance
+
+### UI/UX Improvements (September 2025)
+
+- ✅ **Hover Tooltip UX**: Fixed `useHoverTooltip` hook delay from 100ms to 300ms (later adjusted by user to 200ms) to prevent premature dismissal when trying to click copy/external link icons
+- ✅ **Timestamp Formatting**: Fixed "NaNy ago" display in LAST ROUND column by properly converting Unix timestamps to datetime objects before calling `.isoformat()`
+- ✅ **Round Details Resilience**: Made round details page work independently of auction details API by making auction details optional and adding comprehensive null safety
+- ✅ **Error Handling**: Fixed TypeError with undefined token symbols by adding optional chaining (`wantToken?.symbol`)
+- ✅ **API Proxy Clarification**: Documented development proxy setup where port 3000 (React) forwards `/api/*` requests to port 8000 (FastAPI)
 
 ## Performance Considerations
 

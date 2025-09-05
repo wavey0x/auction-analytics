@@ -236,9 +236,9 @@ const TakesTable: React.FC<TakesTableProps> = ({
                   <td className="px-0.5 py-1">
                     <span
                       className="text-sm text-gray-400"
-                      title={new Date(take.timestamp).toLocaleString()}
+                      title={take.timestamp ? new Date(take.timestamp).toLocaleString() : "Time unavailable"}
                     >
-                      {formatTimeAgo(new Date(take.timestamp).getTime() / 1000)}
+                      {take.timestamp ? formatTimeAgo(new Date(take.timestamp).getTime() / 1000) : "—"}
                     </span>
                   </td>
 

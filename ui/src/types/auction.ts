@@ -7,7 +7,7 @@ export interface Token {
 }
 
 export interface AuctionParameters {
-  price_update_interval: number;
+  update_interval: number;
   step_decay?: string;
   step_decay_rate?: string;
   decay_rate?: number;
@@ -19,8 +19,8 @@ export interface AuctionParameters {
 export interface AuctionRoundInfo {
   round_id: number;
   kicked_at: string;
-  round_start?: number;  // Unix timestamp
-  round_end?: number;    // Unix timestamp
+  round_start?: number; // Unix timestamp
+  round_end?: number; // Unix timestamp
   initial_available: string;
   is_active: boolean;
   current_price?: string;
@@ -29,7 +29,7 @@ export interface AuctionRoundInfo {
   seconds_elapsed: number;
   total_takes: number;
   progress_percentage?: number;
-  from_token?: string;  // Token address for this round
+  from_token?: Token; // Full token object for this round
   transaction_hash?: string; // Kick transaction hash
 }
 
@@ -75,7 +75,7 @@ export interface AuctionActivity {
 export interface AuctionListItem {
   address: string;
   chain_id: number;
-  from_tokens: Token[];
+  from_tokens: Token[]; // Array of enabled token objects
   want_token: Token;
   current_round?: AuctionRoundInfo;
   last_kicked?: string;
@@ -89,7 +89,7 @@ export interface AuctionDetails {
   factory_address?: string;
   deployer: string;
   governance?: string;
-  from_tokens: Token[];
+  from_tokens: Token[]; // Array of enabled token objects
   want_token: Token;
   parameters: AuctionParameters;
   current_round?: AuctionRoundInfo;

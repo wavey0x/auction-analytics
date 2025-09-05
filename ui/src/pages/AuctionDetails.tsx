@@ -45,7 +45,10 @@ import InternalLink from "../components/InternalLink";
 import { useAuctionKickableStatus } from "../hooks/useKickableStatus";
 
 const AuctionDetails: React.FC = () => {
-  const { chainId, address } = useParams<{ chainId: string; address: string }>();
+  const { chainId, address } = useParams<{
+    chainId: string;
+    address: string;
+  }>();
   const [copiedAddresses, setCopiedAddresses] = useState<Set<string>>(
     new Set()
   );
@@ -63,20 +66,20 @@ const AuctionDetails: React.FC = () => {
 
   // Pagination handlers for takes
   const handleNextPage = () => {
-    setCurrentPage(prev => prev + 1);
+    setCurrentPage((prev) => prev + 1);
   };
 
   const handlePrevPage = () => {
-    setCurrentPage(prev => Math.max(1, prev - 1));
+    setCurrentPage((prev) => Math.max(1, prev - 1));
   };
 
   // Pagination handlers for rounds
   const handleNextRoundsPage = () => {
-    setCurrentRoundsPage(prev => prev + 1);
+    setCurrentRoundsPage((prev) => prev + 1);
   };
 
   const handlePrevRoundsPage = () => {
-    setCurrentRoundsPage(prev => Math.max(1, prev - 1));
+    setCurrentRoundsPage((prev) => Math.max(1, prev - 1));
   };
 
   // Fetch auction details
@@ -92,19 +95,21 @@ const AuctionDetails: React.FC = () => {
 
   // Fetch kickable status for this auction - only when auction data is available
   const { data: kickableStatus } = useAuctionKickableStatus(
-    auction ? {
-      address: auction.address,
-      chain_id: auction.chain_id,
-      from_tokens: auction.from_tokens || [],
-      current_round: auction.current_round || null,
-      want_token: auction.want_token || null,
-      factory_address: auction.factory_address || '',
-      version: auction.version || '',
-      created_at: auction.created_at || '',
-      deployed_at: auction.deployed_at || '',
-      decay_rate: auction.decay_rate || 0,
-      update_interval: auction.update_interval || 0
-    } : null,
+    auction
+      ? {
+          address: auction.address,
+          chain_id: auction.chain_id,
+          from_tokens: auction.from_tokens || [],
+          current_round: auction.current_round || null,
+          want_token: auction.want_token || null,
+          factory_address: auction.factory_address || "",
+          version: auction.version || "",
+          created_at: auction.created_at || "",
+          deployed_at: auction.deployed_at || "",
+          decay_rate: auction.decay_rate || 0,
+          update_interval: auction.update_interval || 0,
+        }
+      : null,
     30000 // Refresh every 30 seconds
   );
 
@@ -113,7 +118,13 @@ const AuctionDetails: React.FC = () => {
     queryKey: ["auctionTakes", chainId, address, currentPage],
     queryFn: () => {
       const offset = (currentPage - 1) * takesPerPage;
-      return apiClient.getAuctionTakes(address!, parseInt(chainId!), undefined, takesPerPage, offset);
+      return apiClient.getAuctionTakes(
+        address!,
+        parseInt(chainId!),
+        undefined,
+        takesPerPage,
+        offset
+      );
     },
     enabled: !!chainId && !!address,
   });
@@ -122,7 +133,7 @@ const AuctionDetails: React.FC = () => {
   const takes = takesResponse?.takes || [];
   const totalTakes = takesResponse?.total || 0;
   const totalTakesPages = takesResponse?.total_pages || 1;
-  
+
   // Pagination state for takes (calculated from API response)
   const canGoNext = takesResponse ? currentPage < totalTakesPages : false;
   const canGoPrev = currentPage > 1;
@@ -135,20 +146,29 @@ const AuctionDetails: React.FC = () => {
 
   // Fetch all rounds across all from_tokens, merge and sort
   const { data: allRounds } = useQuery({
-    queryKey: ["auctionRoundsAll", chainId, address, auction?.from_tokens?.map(t => t.address).join(",")],
+    queryKey: [
+      "auctionRoundsAll",
+      chainId,
+      address,
+      auction?.from_tokens?.map((t) => t.address).join(","),
+    ],
     queryFn: async () => {
       if (!auction?.from_tokens?.length) return [] as any[];
       const chain = parseInt(chainId!);
       const results = await Promise.all(
-        auction.from_tokens.map(ft => 
-          apiClient.getAuctionRounds(address!, chain, ft.address)
-            .then(r => ({ rounds: r.rounds || [], from: ft.address }))
+        auction.from_tokens.map((ft) =>
+          apiClient
+            .getAuctionRounds(address!, chain, ft.address)
+            .then((r) => ({ rounds: r.rounds || [], from: ft.address }))
         )
       );
-      const merged = results.flatMap(({ rounds, from }) => 
-        rounds.map(r => ({ ...r, from_token: from }))
+      const merged = results.flatMap(({ rounds, from }) =>
+        rounds.map((r) => ({ ...r, from_token: from }))
       );
-      return merged.sort((a, b) => new Date(b.kicked_at).getTime() - new Date(a.kicked_at).getTime());
+      return merged.sort(
+        (a, b) =>
+          new Date(b.kicked_at).getTime() - new Date(a.kicked_at).getTime()
+      );
     },
     enabled: !!auction && !!chainId && !!address,
     staleTime: 10000,
@@ -159,7 +179,8 @@ const AuctionDetails: React.FC = () => {
   const totalRoundsPages = Math.ceil(totalRounds / roundsPerPage);
   const startRoundIndex = (currentRoundsPage - 1) * roundsPerPage;
   const endRoundIndex = startRoundIndex + roundsPerPage;
-  const paginatedRounds = allRounds?.slice(startRoundIndex, endRoundIndex) || [];
+  const paginatedRounds =
+    allRounds?.slice(startRoundIndex, endRoundIndex) || [];
   const canGoNextRounds = endRoundIndex < totalRounds;
   const canGoPrevRounds = currentRoundsPage > 1;
 
@@ -220,7 +241,6 @@ const AuctionDetails: React.FC = () => {
         </div>
       </div>
 
-
       {/* Key Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
@@ -253,7 +273,11 @@ const AuctionDetails: React.FC = () => {
       </div>
 
       {/* Auction Details */}
-      <CollapsibleSection title="Auction Details" icon={Gavel} iconColor="text-purple-500">
+      <CollapsibleSection
+        title="Auction Details"
+        icon={Gavel}
+        iconColor="text-purple-500"
+      >
         <div className="space-y-6">
           {/* Identity Section */}
           <div>
@@ -266,7 +290,7 @@ const AuctionDetails: React.FC = () => {
               columns={3}
               items={[
                 {
-                  label: 'Want Token',
+                  label: "Want Token",
                   value: auction.want_token ? (
                     <TokenWithAddress
                       token={auction.want_token}
@@ -277,21 +301,66 @@ const AuctionDetails: React.FC = () => {
                     <span className="text-gray-500">—</span>
                   ),
                 },
-                { 
-                  label: 'Interval / Decay', 
-                  value: `${auction.parameters?.price_update_interval ? `${auction.parameters.price_update_interval}s` : '—'} / ${
+                {
+                  label: "Interval / Decay",
+                  value: `${
+                    auction.parameters?.update_interval
+                      ? `${auction.parameters.update_interval}s`
+                      : "—"
+                  } / ${
                     auction.parameters?.decay_rate !== undefined
                       ? `${(auction.parameters.decay_rate * 100).toFixed(2)}%`
                       : auction.parameters?.step_decay_rate
-                      ? `${((1 - parseFloat(auction.parameters.step_decay_rate) / 1e27) * 100).toFixed(2)}%`
-                      : '—'
-                  }` 
+                      ? `${(
+                          (1 -
+                            parseFloat(auction.parameters.step_decay_rate) /
+                              1e27) *
+                          100
+                        ).toFixed(2)}%`
+                      : "—"
+                  }`,
                 },
-                { label: 'Auction Length', value: auction.parameters?.auction_length ? `${(auction.parameters.auction_length / 3600).toFixed(1)} h` : '—' },
-                { label: 'Starting Price', value: auction.parameters?.starting_price ? <span className="font-mono">{formatReadableTokenAmount(auction.parameters.starting_price, 6)}</span> : '—' },
-                ...(auction.last_kicked ? [{ label: 'Last Kicked', value: <span title={new Date(auction.last_kicked).toLocaleString()}>{formatTimeAgo(new Date(auction.last_kicked).getTime()/1000)}</span> }] : [] as any),
                 {
-                  label: 'Enabled Tokens',
+                  label: "Auction Length",
+                  value: auction.parameters?.auction_length
+                    ? `${(auction.parameters.auction_length / 3600).toFixed(
+                        1
+                      )} h`
+                    : "—",
+                },
+                {
+                  label: "Starting Price",
+                  value: auction.parameters?.starting_price ? (
+                    <span className="font-mono">
+                      {formatReadableTokenAmount(
+                        auction.parameters.starting_price,
+                        6
+                      )}
+                    </span>
+                  ) : (
+                    "—"
+                  ),
+                },
+                ...(auction.last_kicked
+                  ? [
+                      {
+                        label: "Last Kicked",
+                        value: (
+                          <span
+                            title={new Date(
+                              auction.last_kicked
+                            ).toLocaleString()}
+                          >
+                            {formatTimeAgo(
+                              new Date(auction.last_kicked).getTime() / 1000
+                            )}
+                          </span>
+                        ),
+                      },
+                    ]
+                  : ([] as any)),
+                {
+                  label: "Enabled Tokens",
                   value: (
                     <CompactTokensDisplay
                       tokens={auction.from_tokens || []}
@@ -303,13 +372,16 @@ const AuctionDetails: React.FC = () => {
                   ),
                   expandable: true,
                   isExpanded: tokensExpanded,
-                  expandedContent: tokensExpanded && auction.from_tokens && auction.from_tokens.length > 0 ? (
-                    <ExpandedTokensList
-                      tokens={auction.from_tokens}
-                      chainId={auction.chain_id}
-                      kickableTokens={kickableStatus?.kickableTokens || []}
-                    />
-                  ) : null,
+                  expandedContent:
+                    tokensExpanded &&
+                    auction.from_tokens &&
+                    auction.from_tokens.length > 0 ? (
+                      <ExpandedTokensList
+                        tokens={auction.from_tokens}
+                        chainId={auction.chain_id}
+                        kickableTokens={kickableStatus?.kickableTokens || []}
+                      />
+                    ) : null,
                 },
               ]}
             />
@@ -319,30 +391,48 @@ const AuctionDetails: React.FC = () => {
           <div>
             <MetaBadges
               items={[
-                { label: 'Deployed', value: formatTimeAgo(new Date(auction.deployed_at).getTime()/1000), icon: Clock },
-                ...(kickableStatus?.isKickable ? [{
-                  label: 'Kickable',
-                  value: (
-                    <span className="text-purple-400">
-                      {kickableStatus.totalKickableCount} token{kickableStatus.totalKickableCount !== 1 ? 's' : ''}
-                    </span>
+                {
+                  label: "Deployed",
+                  value: formatTimeAgo(
+                    new Date(auction.deployed_at).getTime() / 1000
                   ),
-                  icon: Gavel
-                }] : []),
-                ...(auction.governance ? [{
-                  label: 'Governance',
-                  value: (
-                    <a
-                      href={getAddressLink(auction.governance, auction.chain_id)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-white hover:text-primary-300 transition-colors"
-                    >
-                      {formatAddress(auction.governance, 4)}
-                    </a>
-                  ),
-                  icon: Shield
-                }] : []),
+                  icon: Clock,
+                },
+                ...(kickableStatus?.isKickable
+                  ? [
+                      {
+                        label: "Kickable",
+                        value: (
+                          <span className="text-purple-400">
+                            {kickableStatus.totalKickableCount} token
+                            {kickableStatus.totalKickableCount !== 1 ? "s" : ""}
+                          </span>
+                        ),
+                        icon: Gavel,
+                      },
+                    ]
+                  : []),
+                ...(auction.governance
+                  ? [
+                      {
+                        label: "Governance",
+                        value: (
+                          <a
+                            href={getAddressLink(
+                              auction.governance,
+                              auction.chain_id
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white hover:text-primary-300 transition-colors"
+                          >
+                            {formatAddress(auction.governance, 4)}
+                          </a>
+                        ),
+                        icon: Shield,
+                      },
+                    ]
+                  : []),
               ]}
             />
           </div>
@@ -351,10 +441,14 @@ const AuctionDetails: React.FC = () => {
 
       {/* Current Round section removed per request */}
 
-
       {/* Rounds History */}
       {allRounds && allRounds.length > 0 && (
-        <CollapsibleSection title="Rounds History" icon={TrendingUp} iconColor="text-primary-500" seamless={true}>
+        <CollapsibleSection
+          title="Rounds History"
+          icon={TrendingUp}
+          iconColor="text-primary-500"
+          seamless={true}
+        >
           <RoundsTable
             rounds={paginatedRounds as any}
             auctionAddress={auction.address}
@@ -374,7 +468,12 @@ const AuctionDetails: React.FC = () => {
 
       {/* All Takes */}
       {takes && takes.length > 0 && (
-        <CollapsibleSection title="All Takes" icon={Activity} iconColor="text-green-500" seamless={true}>
+        <CollapsibleSection
+          title="All Takes"
+          icon={Activity}
+          iconColor="text-green-500"
+          seamless={true}
+        >
           <TakesTable
             takes={takes}
             title=""
@@ -396,7 +495,12 @@ const AuctionDetails: React.FC = () => {
 
       {/* No Takes State */}
       {(!takes || takes.length === 0) && (
-        <CollapsibleSection title="All Takes" icon={Activity} iconColor="text-green-500" seamless={true}>
+        <CollapsibleSection
+          title="All Takes"
+          icon={Activity}
+          iconColor="text-green-500"
+          seamless={true}
+        >
           <div className="text-center py-8">
             <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
               <TrendingDown className="h-6 w-6 text-gray-600" />

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 
 export interface TooltipPosition {
   x: number;
@@ -24,11 +24,16 @@ export interface HoverTooltipReturn {
  * Reusable hook for portal-based hover tooltips
  * Extracted from InternalLink component for consistent UX across components
  */
-export const useHoverTooltip = (options: HoverTooltipOptions = {}): HoverTooltipReturn => {
-  const { enabled = true, hoverDelay = 100 } = options;
-  
+export const useHoverTooltip = (
+  options: HoverTooltipOptions = {}
+): HoverTooltipReturn => {
+  const { enabled = true, hoverDelay = 200 } = options;
+
   const [isHovered, setIsHovered] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition>({ x: 0, y: 0 });
+  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition>({
+    x: 0,
+    y: 0,
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -37,7 +42,7 @@ export const useHoverTooltip = (options: HoverTooltipOptions = {}): HoverTooltip
       const rect = containerRef.current.getBoundingClientRect();
       setTooltipPosition({
         x: rect.left + rect.width / 2,
-        y: rect.bottom + 4
+        y: rect.bottom + 4,
       });
     }
   };
@@ -78,11 +83,11 @@ export const useHoverTooltip = (options: HoverTooltipOptions = {}): HoverTooltip
   useEffect(() => {
     if (isHovered) {
       const handleScroll = () => updateTooltipPosition();
-      window.addEventListener('scroll', handleScroll, true);
-      window.addEventListener('resize', handleScroll);
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", handleScroll);
       return () => {
-        window.removeEventListener('scroll', handleScroll, true);
-        window.removeEventListener('resize', handleScroll);
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", handleScroll);
       };
     }
   }, [isHovered]);

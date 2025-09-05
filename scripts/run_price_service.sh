@@ -12,7 +12,7 @@ Usage: $(basename "$0") [options]
 
 Options:
   --pricer <name>        Price service to run: ypm|odos|enso|all (default: ypm)
-  --network <name>       Brownie network to connect (for ypm only, default: electro)
+  --network <name>       Brownie network to connect (for ypm only, default: mainnet)
   --retry-failed         Prioritize previously failed requests first (ypm only)
   --poll-interval <sec>  Poll interval in seconds (default: 5 for ypm, 10 for others)
   --recency-minutes <n>  How recent takes must be in minutes (odos/enso only, default: 10)
@@ -32,7 +32,7 @@ EOF
 
 # Defaults
 PRICER="ypm"
-NETWORK="electro"
+NETWORK="mainnet"
 RETRY_FAILED=false
 POLL_INTERVAL=""  # Will be set based on pricer
 RECENCY_MINUTES=10
@@ -88,10 +88,10 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 # shellcheck disable=SC1090
 source "$VENV_DIR/bin/activate"
-python -m pip -q install --upgrade pip
+python3 -m pip -q install --upgrade pip
 
 # Ensure dependencies inside venv
-python - <<'PY'
+python3 - <<'PY'
 import importlib, sys, subprocess
 required = [
   ('y', 'ypricemagic>=1.1.0'),
@@ -151,21 +151,21 @@ case "$PRICER" in
     PY_ARGS=("scripts/price_service_ypm.py" "--network" "$NETWORK" "--poll-interval" "$POLL_INTERVAL")
     if [ "$RETRY_FAILED" = true ]; then PY_ARGS+=("--retry-failed"); fi
     if [ "$ONCE" = true ]; then PY_ARGS+=("--once"); fi
-    python "${PY_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
+    python3 "${PY_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
     ;;
   odos)
     echo "🌐 Chains: Mainnet, Polygon, Arbitrum, Optimism, Base"
     PY_ARGS=("scripts/price_service_odos.py" "--poll-interval" "$POLL_INTERVAL" "--recency-minutes" "$RECENCY_MINUTES")
     if [ "$ONCE" = true ]; then PY_ARGS+=("--once"); fi
     if [ "$DEBUG" = true ]; then PY_ARGS+=("--debug"); fi
-    python "${PY_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
+    python3 "${PY_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
     ;;
   enso)
     echo "🌐 Chains: Mainnet, Polygon, Arbitrum, Optimism, Base"
     PY_ARGS=("scripts/price_service_enso.py" "--poll-interval" "$POLL_INTERVAL" "--recency-minutes" "$RECENCY_MINUTES")
     if [ "$ONCE" = true ]; then PY_ARGS+=("--once"); fi
     if [ "$DEBUG" = true ]; then PY_ARGS+=("--debug"); fi
-    python "${PY_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
+    python3 "${PY_ARGS[@]}" 2>&1 | tee "$LOG_FILE"
     ;;
   all)
     if [ "$PARALLEL" = true ]; then
@@ -188,13 +188,13 @@ case "$PRICER" in
       if [ "$ONCE" = true ]; then ENSO_ARGS+=("--once"); fi
       
       # Start all services in background
-      python "${YMP_ARGS[@]}" 2>&1 | tee "$YMP_LOG" &
+      python3 "${YMP_ARGS[@]}" 2>&1 | tee "$YMP_LOG" &
       YMP_PID=$!
       
-      python "${ODOS_ARGS[@]}" 2>&1 | tee "$ODOS_LOG" &
+      python3 "${ODOS_ARGS[@]}" 2>&1 | tee "$ODOS_LOG" &
       ODOS_PID=$!
       
-      python "${ENSO_ARGS[@]}" 2>&1 | tee "$ENSO_LOG" &
+      python3 "${ENSO_ARGS[@]}" 2>&1 | tee "$ENSO_LOG" &
       ENSO_PID=$!
       
       # Wait for all processes
@@ -210,21 +210,21 @@ case "$PRICER" in
       YMP_ARGS=("scripts/price_service_ypm.py" "--network" "$NETWORK" "--poll-interval" "$POLL_INTERVAL")
       if [ "$RETRY_FAILED" = true ]; then YMP_ARGS+=("--retry-failed"); fi
       if [ "$ONCE" = true ]; then YMP_ARGS+=("--once"); fi
-      python "${YMP_ARGS[@]}" &
+      python3 "${YMP_ARGS[@]}" &
       YMP_PID=$!
       
       # Run odos second
       echo "\n--- Starting Odos ---"
       ODOS_ARGS=("scripts/price_service_odos.py" "--poll-interval" "$POLL_INTERVAL" "--recency-minutes" "$RECENCY_MINUTES")
       if [ "$ONCE" = true ]; then ODOS_ARGS+=("--once"); fi
-      python "${ODOS_ARGS[@]}" &
+      python3 "${ODOS_ARGS[@]}" &
       ODOS_PID=$!
       
       # Run enso third
       echo "\n--- Starting ENSO ---"
       ENSO_ARGS=("scripts/price_service_enso.py" "--poll-interval" "$POLL_INTERVAL" "--recency-minutes" "$RECENCY_MINUTES")
       if [ "$ONCE" = true ]; then ENSO_ARGS+=("--once"); fi
-      python "${ENSO_ARGS[@]}" &
+      python3 "${ENSO_ARGS[@]}" &
       ENSO_PID=$!
       
       # Wait for all

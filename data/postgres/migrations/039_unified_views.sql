@@ -140,7 +140,7 @@ SELECT
     a.chain_id,
     a.want_token,
     a.deployer,
-    a.update_interval AS price_update_interval,
+    a.update_interval AS update_interval,
     a.auction_length,
     a.starting_price,
     wt.symbol  AS want_token_symbol,

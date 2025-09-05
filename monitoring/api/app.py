@@ -12,14 +12,17 @@ import json
 import argparse
 import asyncio
 import os
-import redis
+try:
+    import redis  # type: ignore
+except Exception:  # pragma: no cover
+    redis = None
 try:
     import redis.asyncio as aioredis  # type: ignore
 except Exception:  # pragma: no cover
     aioredis = None
 from datetime import datetime, timezone
 
-from monitoring.api.config import get_settings, get_cors_origins, is_mock_mode, requires_database, get_all_network_configs, get_enabled_networks
+from monitoring.api.config import get_settings, get_cors_origins, is_mock_mode, requires_database, get_all_network_configs, get_enabled_networks, is_development_mode
 from monitoring.api.models.auction import SystemStats
 from monitoring.api.models.taker import TakerSummary, TakerDetail, TakerListResponse, TakerTakesResponse
 from monitoring.api.database import get_db, check_database_connection, get_data_provider, DataProvider
@@ -35,11 +38,91 @@ if __name__ == "__main__":
     args = parser.parse_args()
     PROVIDER_MODE = "mock" if args.mock else None
 else:
-    # When imported by uvicorn, check for MOCK_MODE environment variable
-    PROVIDER_MODE = "mock" if os.getenv("MOCK_MODE", "").lower() in ["true", "1", "yes"] else None
+    # When imported by uvicorn, prefer app mode; fallback to MOCK_MODE env
+    # If app is configured for mock mode, force the mock provider to avoid DB requirement
+    try:
+        from monitoring.api.config import is_mock_mode as _is_mock
+        if _is_mock():
+            PROVIDER_MODE = "mock"
+        else:
+            PROVIDER_MODE = "mock" if os.getenv("MOCK_MODE", "").lower() in ["true", "1", "yes"] else None
+    except Exception:
+        PROVIDER_MODE = "mock" if os.getenv("MOCK_MODE", "").lower() in ["true", "1", "yes"] else None
+
+def configure_logging():
+    """Configure application and SQL logging to write to files in dev.
+
+    Files:
+      logs/api-dev.log  - app logs
+      logs/sql-dev.log  - SQLAlchemy engine/pool logs (when SQL_DEBUG=true)
+    """
+    import os
+    from logging.handlers import RotatingFileHandler
+
+    log_dir = os.path.join(os.getcwd(), 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+
+    fmt = logging.Formatter(
+        fmt='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+
+    # Ensure we have a console handler if none exists (so logs still appear in stdout)
+    if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
+        sh = logging.StreamHandler()
+        sh.setFormatter(fmt)
+        sh.setLevel(logging.INFO)
+        root.addHandler(sh)
+
+    # Avoid duplicate handlers when hot-reloading
+    def _has_file_handler(target, path):
+        for h in target.handlers:
+            if isinstance(h, RotatingFileHandler) and getattr(h, 'baseFilename', '') == os.path.abspath(path):
+                return True
+        return False
+
+    api_log_path = os.getenv('API_LOG_FILE', os.path.join(log_dir, 'api.log'))
+    if not _has_file_handler(root, api_log_path):
+        fh = RotatingFileHandler(api_log_path, maxBytes=5_000_000, backupCount=3)
+        fh.setFormatter(fmt)
+        fh.setLevel(logging.INFO)
+        root.addHandler(fh)
+
+    # SQL logs only when SQL_DEBUG=true
+    if os.getenv('SQL_DEBUG', 'false').lower() == 'true':
+        sql_logger_names = ['sqlalchemy.engine', 'sqlalchemy.pool']
+        sql_log_path = os.getenv('SQL_LOG_FILE', os.path.join(log_dir, 'sql.log'))
+        sql_fh = RotatingFileHandler(sql_log_path, maxBytes=10_000_000, backupCount=3)
+        sql_fh.setFormatter(fmt)
+        sql_fh.setLevel(logging.INFO)
+        for name in sql_logger_names:
+            lg = logging.getLogger(name)
+            lg.setLevel(logging.INFO)
+            # Prevent duplicate file handlers
+            if not _has_file_handler(lg, sql_log_path):
+                lg.addHandler(sql_fh)
+
+    # Uvicorn loggers (so startup and access logs also go to file)
+    for uv_name in ('uvicorn', 'uvicorn.error', 'uvicorn.access'):
+        uv = logging.getLogger(uv_name)
+        uv.setLevel(logging.INFO)
+        if not _has_file_handler(uv, api_log_path):
+            fh2 = RotatingFileHandler(api_log_path, maxBytes=5_000_000, backupCount=3)
+            fh2.setFormatter(fmt)
+            fh2.setLevel(logging.INFO)
+            uv.addHandler(fh2)
+
 
 # Setup logging
+# - Always configure a console handler
+# - Write to file when in development or when API_LOG_TO_FILE=true
 logging.basicConfig(level=logging.INFO)
+if is_development_mode() or os.getenv('API_LOG_TO_FILE', 'false').lower() in ('1','true','yes','on'):
+    configure_logging()
+
 logger = logging.getLogger(__name__)
 
 # Get settings
@@ -102,6 +185,18 @@ async def startup_event():
     logger.info(f"Validating data provider for mode: {PROVIDER_MODE}")
     
     try:
+        # If a real database is required, verify configuration before building provider
+        if requires_database() and (PROVIDER_MODE is None or PROVIDER_MODE == "real"):
+            eff_db = settings.get_effective_database_url()
+            if not eff_db:
+                logger.error("❌ DATABASE_URL (or DEV_DATABASE_URL) is not set; cannot start in non-mock mode")
+                raise RuntimeError("Database URL required for this mode but not configured")
+            # Try a lightweight connection check
+            ok = await check_database_connection()
+            if not ok:
+                logger.error("❌ Database connection check failed (SELECT 1)")
+                raise RuntimeError("Cannot connect to database using provided URL")
+
         provider = get_data_provider(force_mode=PROVIDER_MODE)
         
         if PROVIDER_MODE == "real":
@@ -114,8 +209,8 @@ async def startup_event():
             
             logger.info("✅ Database provider validated successfully")
         else:
-            logger.info("✅ Mock provider initialized successfully")
-            
+            logger.info("✅ Data provider initialized successfully")
+        
     except Exception as e:
         logger.error(f"❌ Startup validation failed: {e}")
         raise
@@ -178,12 +273,8 @@ async def get_auctions(
     data_service: DataProvider = Depends(get_data_service)
 ):
     """Get paginated list of auctions"""
-    try:
-        result = await data_service.get_auctions(status, page, limit, chain_id)
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching auctions: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch auctions")
+    result = await data_service.get_auctions(status, page, limit, chain_id)
+    return result
 
 
 @app.get("/auctions/{chain_id}/{auction_address}")
@@ -193,15 +284,8 @@ async def get_auction_details(
     data_service: DataProvider = Depends(get_data_service)
 ):
     """Get detailed auction information"""
-    try:
-        result = await data_service.get_auction_details(auction_address, chain_id)
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching auction details: {e}")
-        # Return 404 when the auction is not found in the database
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail="Auction not found")
-        raise HTTPException(status_code=500, detail="Failed to fetch auction details")
+    result = await data_service.get_auction_details(auction_address, chain_id)
+    return result
 
 @app.get("/auctions/{chain_id}/{auction_address}/takes")
 async def get_auction_takes(
@@ -213,15 +297,8 @@ async def get_auction_takes(
     data_service: DataProvider = Depends(get_data_service)
 ):
     """Get takes for a specific auction"""
-    try:
-        result = await data_service.get_auction_takes(auction_address, round_id, limit, chain_id, offset)
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching auction takes: {e}")
-        # If upstream indicates auction not found, reflect as 404 for clarity
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail="Auction not found")
-        raise HTTPException(status_code=500, detail="Failed to fetch auction takes")
+    result = await data_service.get_auction_takes(auction_address, round_id, limit, chain_id, offset)
+    return result
 
 @app.get("/auctions/{chain_id}/{auction_address}/rounds")
 async def get_auction_rounds(
@@ -233,12 +310,8 @@ async def get_auction_rounds(
     data_service: DataProvider = Depends(get_data_service)
 ):
     """Get round history for an auction"""
-    try:
-        result = await data_service.get_auction_rounds(auction_address, from_token, limit, chain_id, round_id)
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching auction rounds: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch auction rounds")
+    result = await data_service.get_auction_rounds(auction_address, from_token, limit, chain_id, round_id)
+    return result
 
 
 @app.get("/auctions/{chain_id}/{auction_address}/price-history")

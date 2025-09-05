@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Gavel, Settings, Book } from 'lucide-react'
+import AppLogo from './AppLogo'
 import SettingsModal from './SettingsModal'
 import NotificationContainer from './NotificationContainer'
 import ErrorNotification from './ErrorNotification'
@@ -56,8 +57,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { data: statusData, error: statusError, isLoading } = useQuery({
     queryKey: ['status-summary'],
     queryFn: () => apiClient.getStatus(),
-    refetchInterval: 5000, // More aggressive refresh - every 5 seconds
-    staleTime: 0, // Always consider data stale for immediate updates
+    // Refresh at most once per minute
+    refetchInterval: 60 * 1000,
+    staleTime: 60 * 1000, // prevent focus/refetch within a minute
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: 3,
   })
 
@@ -107,17 +111,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <div className="flex items-center space-x-4">
-              <Link to="/" className="flex items-center space-x-3 group">
-                <div className="h-11 w-11 pixel-badge rounded-none">
-                  <Gavel className="h-5 w-5 text-primary-300" />
-                </div>
-                <div>
-                  <h1 className="logo-8bit glow-text text-[20px] sm:text-[22px] font-black leading-none text-primary-300">
-                    <span className="logo-bracket logo-bracket-left text-gray-200" aria-hidden="true">[</span>
-                    <span className="logo-title-text">AUCTION <span className="text-gray-200">ANALYTICS</span></span>
-                    <span className="logo-bracket logo-bracket-right text-primary-300" aria-hidden="true">]</span>
-                  </h1>
-                </div>
+              <Link to="/" className="flex items-center group" aria-label="AuctionAnalytics home">
+                <AppLogo iconPx={56} />
               </Link>
             </div>
 

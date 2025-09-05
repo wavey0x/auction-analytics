@@ -84,8 +84,11 @@ const StatusPage: React.FC = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['status'],
     queryFn: () => apiClient.getStatus(),
-    refetchInterval: 15000,
-    staleTime: 10000,
+    // Refresh at most once per minute to reduce load
+    refetchInterval: 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   // Get RPC health data from frontend monitor

@@ -165,7 +165,7 @@ BEGIN
     SELECT EXISTS (
         SELECT 1 FROM information_schema.columns 
         WHERE table_name = 'auctions' 
-        AND column_name IN ('step_decay', 'step_decay_rate', 'fixed_starting_price', 'price_update_interval')
+        AND column_name IN ('step_decay', 'step_decay_rate', 'fixed_starting_price', 'update_interval')
     ) INTO obsolete_columns_exist;
     
     -- Report results

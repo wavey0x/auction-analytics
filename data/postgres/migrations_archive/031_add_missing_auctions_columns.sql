@@ -28,15 +28,15 @@ ALTER TABLE auctions ADD COLUMN IF NOT EXISTS step_decay_rate DECIMAL(30,0);
 
 -- Update column comments
 COMMENT ON COLUMN auctions.version IS 'Contract version: 0.0.1 (legacy) or 0.1.0 (modern)';
-COMMENT ON COLUMN auctions.update_interval IS 'Price update interval in seconds (mapped from price_update_interval)';
+COMMENT ON COLUMN auctions.update_interval IS 'Price update interval in seconds (mapped from update_interval)';
 COMMENT ON COLUMN auctions.step_decay_rate IS 'Decay rate per step in RAY format (1e27)';
 
--- Copy data from price_update_interval to update_interval if needed
+-- Copy data from update_interval to update_interval if needed
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'auctions' AND column_name = 'price_update_interval') THEN
-        UPDATE auctions SET update_interval = price_update_interval WHERE update_interval IS NULL;
-        RAISE NOTICE '✅ Copied price_update_interval to update_interval';
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'auctions' AND column_name = 'update_interval') THEN
+        UPDATE auctions SET update_interval = update_interval WHERE update_interval IS NULL;
+        RAISE NOTICE '✅ Copied update_interval to update_interval';
     END IF;
 END $$;
 

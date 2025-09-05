@@ -30,7 +30,7 @@ class TokenInfo(BaseModel):
 
 class AuctionParameters(BaseModel):
     """Auction configuration parameters"""
-    price_update_interval: int = Field(..., description="Seconds between price updates")
+    update_interval: int = Field(..., description="Seconds between price updates")
     step_decay: Optional[str] = Field(None, description="DEPRECATED: Decay rate in RAY format (1e27)")
     step_decay_rate: Optional[str] = Field(None, description="Step decay rate per 36-second step (e.g., 0.995 * 1e27)")
     decay_rate: Optional[float] = Field(None, description="Decay rate as decimal (e.g., 0.0115 for 1.15%)")
@@ -58,6 +58,8 @@ class AuctionRoundInfo(BaseModel):
     seconds_elapsed: int = Field(..., description="Seconds since round started")
     total_takes: int = Field(0, description="Number of takes in this round")
     progress_percentage: Optional[float] = Field(None, description="Percentage of tokens sold")
+    from_token: Optional[TokenInfo] = Field(None, description="Full token info for the round's from_token")
+    transaction_hash: Optional[str] = Field(None, description="Kick transaction hash")
 
 class Take(BaseModel):
     """Individual take within an auction round"""

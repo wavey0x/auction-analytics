@@ -65,7 +65,7 @@ class UnifiedPricingService:
     def __init__(
         self,
         poll_interval: int = 5,
-        ypm_network: str = "electro",
+        ypm_network: str = "mainnet",
         once: bool = False,
         max_workers: int = 4,
         ypm_timeout: float = 20.0,
@@ -431,7 +431,7 @@ class UnifiedPricingService:
 def main():
     parser = argparse.ArgumentParser(description='Unified Pricing Service (multi-source)')
     parser.add_argument('--poll-interval', type=int, default=5, help='Poll interval (seconds) when idle')
-    parser.add_argument('--network', default='electro', help='Brownie network name for ypricemagic')
+    parser.add_argument('--network', default='mainnet', help='Brownie network name for ypricemagic')
     parser.add_argument('--once', action='store_true', help='Process one batch then exit')
     parser.add_argument('--workers', type=int, default=4, help='Max concurrent source fetches')
     parser.add_argument('--ypm-timeout', type=float, default=20.0, help='Timeout for ypricemagic fetch (seconds)')
