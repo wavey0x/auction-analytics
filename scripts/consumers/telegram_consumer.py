@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class TelegramConsumer:
     """Consumer that sends auction events to Telegram using config file"""
     
-    def __init__(self, redis_url: str, config_path: str = "scripts/telegram_config.yaml", stream_key: str = 'events'):
+    def __init__(self, redis_url: str, config_path: str = "scripts/telegram_config.yaml", stream_key: str | None = None):
         # Load environment variables from .env file
         load_dotenv()
         
@@ -60,7 +60,8 @@ class TelegramConsumer:
             logger.info(f"✅ Connected to Redis at {safe_url}")
         except Exception:
             pass
-        self.stream_key = stream_key
+        # Resolve stream key from argument or environment
+        self.stream_key = stream_key or os.getenv('REDIS_STREAM_KEY', 'events')
         self.consumer_group = 'telegram'
         self.consumer_name = f'telegram-{os.getpid()}'
         

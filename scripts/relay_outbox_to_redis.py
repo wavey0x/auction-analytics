@@ -255,9 +255,14 @@ def main():
         logger.error("Database URL not configured")
         sys.exit(1)
     
+    stream_key = os.getenv('REDIS_STREAM_KEY', 'events')
+    dlq_key = os.getenv('REDIS_DLQ_KEY', 'events:dlq')
+
     relay = OutboxRelay(
         db_url=db_url,
         redis_url=redis_url,
+        stream_key=stream_key,
+        dlq_key=dlq_key,
         batch_size=args.batch_size,
         poll_interval_ms=args.poll_interval,
         retry_limit=args.retry_limit

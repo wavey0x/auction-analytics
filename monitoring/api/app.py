@@ -873,7 +873,15 @@ async def event_stream(
             yield "data: {\"type\": \"connected\"}\n\n"
             
             # Build Redis client (prefer asyncio to avoid blocking the event loop)
-            redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+            # Use shared builder so dev docker vs prod native host are handled via env
+            redis_url = os.getenv('REDIS_URL')
+            if not redis_url:
+                try:
+                    from scripts.lib.redis_utils import build_redis_url  # type: ignore
+                    redis_url = build_redis_url(role='consumer')
+                except Exception:
+                    redis_url = 'redis://localhost:6379'
+            stream_key = os.getenv('REDIS_STREAM_KEY', 'events')
             use_async = aioredis is not None
             if use_async:
                 redis_client = aioredis.from_url(
@@ -921,9 +929,9 @@ async def event_stream(
                 # Only send historical events if no resume point (new connection)
                 if not start_from:
                     if use_async:
-                        recent_messages = await redis_client.xrevrange('events', count=10)  # type: ignore
+                        recent_messages = await redis_client.xrevrange(stream_key, count=10)  # type: ignore
                     else:
-                        recent_messages = await asyncio.to_thread(redis_client.xrevrange, 'events', None, None, 10)
+                        recent_messages = await asyncio.to_thread(redis_client.xrevrange, stream_key, None, None, 10)
                     
                     # Filter for recent events (last 5 minutes)
                     five_minutes_ago = current_time_ms - (5 * 60 * 1000)
@@ -972,7 +980,7 @@ async def event_stream(
             while True:
                 try:
                     # Use XREAD to get new events from the stream
-                    messages = await _xread_messages(redis_client, current_id)
+                    messages = await _xread_messages(redis_client, current_id, stream_key)
                     
                     if messages:
                         for stream_name, stream_messages in messages:
@@ -1021,11 +1029,11 @@ async def event_stream(
                 pass
 
     # Inner loop for polling new messages, implemented twice to avoid blocking
-    async def _xread_messages(redis_client, current_id):
+    async def _xread_messages(redis_client, current_id, stream_key: str):
         if aioredis is not None and isinstance(redis_client, aioredis.Redis):  # type: ignore
-            return await redis_client.xread({'events': current_id}, count=10, block=2000)  # type: ignore
+            return await redis_client.xread({stream_key: current_id}, count=10, block=2000)  # type: ignore
         # Fallback: run sync xread in a thread to avoid blocking the event loop
-        return await asyncio.to_thread(redis_client.xread, {'events': current_id}, 10, 2000)
+        return await asyncio.to_thread(redis_client.xread, {stream_key: current_id}, 10, 2000)
 
     return StreamingResponse(
         simple_event_generator(),

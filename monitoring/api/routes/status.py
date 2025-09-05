@@ -155,33 +155,30 @@ async def get_status(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
                     socket_connect_timeout=2,
                     socket_timeout=2,
                 )
-                pong = client.ping()
-                redis_status["status"] = "ok" if pong else "down"
-                redis_status["detail"] = "PONG" if pong else "No response"
-            except Exception as e:
-                # If auth may be the issue, try unauth ping by stripping credentials
+                # Prefer a read-based probe so consumer user doesn't need +ping
+                stream_key = os.getenv("REDIS_STREAM_KEY", "events")
                 try:
-                    noauth_url = redis_url
-                    if "@" in noauth_url:
-                        scheme = noauth_url.split("://",1)[0]
-                        rest = noauth_url.split("@",1)[1]
-                        noauth_url = f"{scheme}://{rest}"
-                    client = redis.from_url(
-                        noauth_url,
-                        decode_responses=True,
-                        socket_connect_timeout=2,
-                        socket_timeout=2,
-                    )
-                    pong = client.ping()
-                    if pong:
+                    client.xrevrange(stream_key, count=1)
+                    redis_status["status"] = "ok"
+                    redis_status["detail"] = f"xrevrange({stream_key}) ok"
+                except Exception as cmd_err:
+                    # Fall back to XREAD which is commonly allowed for consumers
+                    try:
+                        client.xread({stream_key: "$"}, count=1, block=1)
                         redis_status["status"] = "ok"
-                        redis_status["detail"] = "PONG (unauth)"
-                    else:
-                        redis_status["status"] = "down"
-                        redis_status["detail"] = "No response"
-                except Exception:
-                    redis_status["status"] = "down"
-                    redis_status["detail"] = str(e)[:200]
+                        redis_status["detail"] = f"xread({stream_key}) ok"
+                    except Exception:
+                        # As a last resort, try PING; if forbidden, surface the error
+                        try:
+                            pong = client.ping()
+                            redis_status["status"] = "ok" if pong else "down"
+                            redis_status["detail"] = "PONG" if pong else "No response"
+                        except Exception as e2:
+                            redis_status["status"] = "down"
+                            redis_status["detail"] = str(cmd_err)[:200]
+            except Exception as e:
+                redis_status["status"] = "down"
+                redis_status["detail"] = str(e)[:200]
     services.append(redis_status)
 
     # RPC health (simulated from frontend monitoring)

@@ -13,6 +13,10 @@ import os
 import random
 from datetime import datetime
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables early so helper can build URL from parts
+load_dotenv()
 
 class EventFirer:
     """Interactive Redis event firing tool"""
@@ -27,6 +31,7 @@ class EventFirer:
                 redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
         self.redis_url = redis_url
         self.redis = None
+        self.stream_key = os.getenv('REDIS_STREAM_KEY', 'events')
         self.connect()
         
         # Pre-defined realistic data for variety
@@ -69,15 +74,14 @@ class EventFirer:
                 socket_connect_timeout=3,
                 socket_timeout=5,
             )
-            self.redis.ping()
             # Mask credentials in printed URL
             safe_url = self.redis_url
             if '@' in safe_url:
                 safe_url = safe_url.replace(safe_url.split('://',1)[1].split('@',1)[0], '***')
-            print(f"✅ Connected to Redis at {safe_url}")
+            print(f"✅ Redis client configured: {safe_url}")
         except Exception as e:
             print(f"❌ Redis connection failed: {e}")
-            print("   Make sure Redis is running: docker-compose up -d redis")
+            print("   Check REDIS_* env vars or REDIS_URL; ensure ACL credentials are correct.")
             sys.exit(1)
     
     def fire_deploy_event(self, chain_id: int = 31337, custom_data: Dict = None) -> str:
@@ -249,15 +253,15 @@ class EventFirer:
     def _send_event(self, event: Dict) -> str:
         """Send event to Redis stream"""
         try:
-            stream_id = self.redis.xadd('events', event)
+            stream_id = self.redis.xadd(self.stream_key, event)
             chain_name = self.chains.get(event['chain_id'], f"Chain {event['chain_id']}")
             print(f"  📡 {event['type'].upper()}: {stream_id} ({chain_name})")
             return stream_id
         except Exception as e:
             print(f"  ❌ Failed to send {event['type']} event: {e}")
             try:
-                # Show quick stream info to help debug perms
-                info = self.redis.xinfo_stream('events')
+                # Show quick stream info to help debug perms (may require +xinfo)
+                info = self.redis.xinfo_stream(self.stream_key)
                 print(f"  ℹ️  Stream length={info.get('length')} last-id={info.get('last-generated-id')}")
             except Exception as ee:
                 print(f"  ℹ️  Could not fetch stream info: {ee}")
@@ -335,14 +339,14 @@ class EventFirer:
     def _show_stream_info(self):
         """Show Redis stream information"""
         try:
-            info = self.redis.xinfo_stream('events')
+            info = self.redis.xinfo_stream(self.stream_key)
             print(f"\n📊 Stream 'events' info:")
             print(f"   Length: {info.get('length', 0)} messages")
             print(f"   Groups: {info.get('groups', 0)}")
             print(f"   Last ID: {info.get('last-generated-id', 'N/A')}")
             
             # Show recent messages
-            messages = self.redis.xrevrange('events', count=5)
+            messages = self.redis.xrevrange(self.stream_key, count=5)
             print(f"\n📝 Recent messages:")
             for msg_id, data in messages:
                 event_type = data.get('type', 'unknown')
