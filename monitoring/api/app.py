@@ -1056,8 +1056,9 @@ async def event_stream(
         simple_event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "Last-Event-ID,Cache-Control",
             "Access-Control-Expose-Headers": "Last-Event-ID"
