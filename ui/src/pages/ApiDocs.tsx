@@ -63,136 +63,195 @@ print(data['auctions'])`
       },
       tags: ['auctions', 'core']
     },
+    // Core (Auctions)
     {
       category: 'core',
       title: 'Get Auction Details',
       method: 'GET' as const,
-      endpoint: '/auctions/{chain_id}/{auction_address}',
-      description: 'Get comprehensive details about a specific auction including current round info and activity metrics.',
-      pathParams: [
-        { name: 'chain_id', type: 'integer' as const, required: true, description: 'Blockchain network ID', example: 1 },
-        { name: 'auction_address', type: 'string' as const, required: true, description: 'Auction contract address', example: '0x1234567890abcdef1234567890abcdef12345678' },
-      ],
-      responses: [
-        {
-          status: 200,
-          description: 'Successfully retrieved auction details',
-          example: {
-            address: '0x1234567890abcdef1234567890abcdef12345678',
-            chain_id: 1,
-            from_tokens: [{ symbol: 'WETH', address: '0x...', decimals: 18 }],
-            want_token: { symbol: 'USDC', address: '0x...', decimals: 6 },
-            parameters: {
-              decay_rate: 0.005,
-              update_interval: 36,
-              auction_length: 3600,
-              starting_price: '2000000000'
-            },
-            current_round: {
-              round_id: 5,
-              is_active: true,
-              initial_available: '1000000000000000000',
-              current_price: '1950000000',
-              time_remaining: 3600
-            },
-            activity: {
-              total_rounds: 10,
-              total_takes: 45,
-              total_volume: '50000000000'
-            }
-          }
-        }
-      ],
-      codeExamples: {
-        curl: `curl -X GET "${window.location.origin}/api/auctions/1/0x1234567890abcdef1234567890abcdef12345678" \\
-  -H "Content-Type: application/json"`,
-        javascript: `const response = await fetch('/api/auctions/1/0x1234567890abcdef1234567890abcdef12345678');
-const auction = await response.json();
-console.log(auction);`,
-        python: `import requests
-
-response = requests.get('${window.location.origin}/api/auctions/1/0x1234567890abcdef1234567890abcdef12345678')
-auction = response.json()
-print(auction)`
-      },
-      tags: ['auctions', 'details']
+      endpoint: '/auctions/{auction_address}',
+      description: 'Get specific auction by address (provide chain_id as query parameter).',
+      pathParams: [{ name: 'auction_address', type: 'string' as const, required: true }],
+      parameters: [{ name: 'chain_id', type: 'integer' as const, required: true }],
+      responses: [{ status: 200, description: 'Auction details', example: { address: '0x123...789', chain_id: 1 } }],
+      tags: ['auctions']
     },
     {
       category: 'core',
-      title: 'Get Auction Takes',
+      title: 'Get Auction Config',
       method: 'GET' as const,
-      endpoint: '/auctions/{chain_id}/{auction_address}/takes',
-      description: 'Retrieve all takes (purchases) for a specific auction with optional round filtering.',
-      pathParams: [
-        { name: 'chain_id', type: 'integer' as const, required: true, description: 'Blockchain network ID', example: 1 },
-        { name: 'auction_address', type: 'string' as const, required: true, description: 'Auction contract address' },
-      ],
-      parameters: [
-        { name: 'round_id', type: 'integer' as const, description: 'Filter takes by specific round ID' },
-        { name: 'limit', type: 'integer' as const, description: 'Number of takes to return (1-100)', example: 50 },
-        { name: 'offset', type: 'integer' as const, description: 'Number of takes to skip for pagination', example: 0 },
-      ],
-      responses: [
-        {
-          status: 200,
-          description: 'Successfully retrieved auction takes',
-          example: {
-            takes: [
-              {
-                take_id: '0x123...abc-5-1',
-                auction: '0x1234567890abcdef1234567890abcdef12345678',
-                round_id: 5,
-                take_seq: 1,
-                taker: '0xabcdef1234567890abcdef1234567890abcdef12',
-                amount_taken: '100000000000000000',
-                amount_paid: '195000000',
-                price: '1950000000',
-                timestamp: '2024-01-15T14:30:00Z',
-                tx_hash: '0xdef456...'
-              }
-            ],
-            total: 10,
-            has_more: false
-          }
-        }
-      ],
-      tags: ['auctions', 'takes', 'trading']
+      endpoint: '/auctions/{auction_address}/config',
+      description: 'Get auction parameters (provide chain_id as query parameter).',
+      pathParams: [{ name: 'auction_address', type: 'string' as const, required: true }],
+      parameters: [{ name: 'chain_id', type: 'integer' as const, required: true }],
+      responses: [{ status: 200, description: 'Auction config', example: { decay_rate: 0.005, update_interval: 36 } }],
+      tags: ['auctions']
     },
     {
       category: 'core',
       title: 'Get Auction Rounds',
       method: 'GET' as const,
-      endpoint: '/auctions/{chain_id}/{auction_address}/rounds',
-      description: 'Get historical round data for a specific auction and token pair.',
-      pathParams: [
-        { name: 'chain_id', type: 'integer' as const, required: true, description: 'Blockchain network ID' },
-        { name: 'auction_address', type: 'string' as const, required: true, description: 'Auction contract address' },
-      ],
+      endpoint: '/auctions/{auction_address}/rounds',
+      description: 'Rounds for a specific auction (provide chain_id as query parameter).',
+      pathParams: [{ name: 'auction_address', type: 'string' as const, required: true }],
       parameters: [
-        { name: 'from_token', type: 'string' as const, required: true, description: 'Token being sold address' },
-        { name: 'limit', type: 'integer' as const, description: 'Number of rounds to return (1-100)', example: 50 },
+        { name: 'chain_id', type: 'integer' as const, required: true },
+        { name: 'from_token', type: 'string' as const, description: 'Optional from-token address' },
+        { name: 'round_id', type: 'integer' as const, description: 'Optional specific round' },
+        { name: 'limit', type: 'integer' as const, description: 'Number of rounds', example: 50 }
       ],
-      responses: [
-        {
-          status: 200,
-          description: 'Successfully retrieved round history',
-          example: {
-            auction: '0x1234567890abcdef1234567890abcdef12345678',
-            from_token: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-            rounds: [
-              {
-                round_id: 5,
-                kicked_at: '2024-01-15T14:00:00Z',
-                initial_available: '1000000000000000000',
-                is_active: true,
-                total_takes: 3
-              }
-            ],
-            total_rounds: 10
-          }
+      responses: [{ status: 200, description: 'Rounds list', example: { rounds: [{ round_id: 5 }], total_count: 1 } }],
+      tags: ['rounds']
+    },
+    {
+      category: 'core',
+      title: 'Get Auction Takes',
+      method: 'GET' as const,
+      endpoint: '/auctions/{auction_address}/takes',
+      description: 'Takes for a specific auction (provide chain_id as query parameter).',
+      pathParams: [{ name: 'auction_address', type: 'string' as const, required: true }],
+      parameters: [
+        { name: 'chain_id', type: 'integer' as const, required: true },
+        { name: 'round_id', type: 'integer' as const, description: 'Optional round filter' },
+        { name: 'limit', type: 'integer' as const, description: 'Items per page', example: 50 },
+        { name: 'offset', type: 'integer' as const, description: 'Offset for pagination', example: 0 }
+      ],
+      responses: [{ status: 200, description: 'Auction takes', example: { takes: [{ take_id: '0xabc...-5-1' }], total_count: 10, limit: 50, page: 1, total_pages: 1 } }],
+      tags: ['takes']
+    },
+
+    // Core (Takes)
+    {
+      category: 'core',
+      title: 'List Takes',
+      method: 'GET' as const,
+      endpoint: '/takes',
+      description: 'List recent takes across all auctions. Use chain_id to filter to a network.',
+      parameters: [ { name: 'limit', type: 'integer' as const, example: 50 }, { name: 'chain_id', type: 'integer' as const } ],
+      responses: [{ status: 200, description: 'Recent takes', example: [{ take_id: '0xabc...-5-1' }] }],
+      tags: ['takes']
+    },
+    {
+      category: 'core',
+      title: 'Get Take Details',
+      method: 'GET' as const,
+      endpoint: '/takes/{chain_id}/{auction_address}/{round_id}/{take_seq}',
+      description: 'Get detailed information for a specific take.',
+      pathParams: [
+        { name: 'chain_id', type: 'integer' as const, required: true },
+        { name: 'auction_address', type: 'string' as const, required: true },
+        { name: 'round_id', type: 'integer' as const, required: true },
+        { name: 'take_seq', type: 'integer' as const, required: true }
+      ],
+      responses: [{ status: 200, description: 'Take detail', example: { chain_id: 1, auction_address: '0x123...789', round_id: 5, take_seq: 1 } }],
+      tags: ['takes']
+    },
+
+    // Core (Rounds)
+    {
+      category: 'core',
+      title: 'List Rounds',
+      method: 'GET' as const,
+      endpoint: '/rounds',
+      description: 'Minimal listing of recent rounds across all auctions.',
+      parameters: [ { name: 'limit', type: 'integer' as const, example: 50 }, { name: 'chain_id', type: 'integer' as const } ],
+      responses: [{ status: 200, description: 'Rounds', example: { rounds: [{ auction_address: '0x123...789', round_id: 5 }], total_count: 1 } }],
+      tags: ['rounds']
+    },
+    // Reference
+    // Taker Endpoints
+    {
+      category: 'takers',
+      title: 'List Takers',
+      method: 'GET' as const,
+      endpoint: '/takers',
+      description: 'Get ranked takers with summary stats. Supports sorting by volume, takes, or recent.',
+      parameters: [
+        { name: 'sort_by', type: 'string' as const, enum: ['volume','takes','recent'], description: 'Sorting mode', example: 'volume' },
+        { name: 'page', type: 'integer' as const, description: 'Page number', example: 1 },
+        { name: 'limit', type: 'integer' as const, description: 'Items per page (1-100)', example: 20 },
+        { name: 'chain_id', type: 'integer' as const, description: 'Filter to takers active on a chain' }
+      ],
+      responses: [{
+        status: 200,
+        description: 'Takers retrieved',
+        example: {
+          takers: [{
+            taker: '0xabc...def', total_takes: 42, unique_auctions: 5, unique_chains: 2,
+            total_volume_usd: 12345.67, avg_take_size_usd: 293.94,
+            first_take: '2024-01-10T00:00:00Z', last_take: '2024-01-20T12:34:56Z',
+            active_chains: [1,42161], rank_by_takes: 3, rank_by_volume: 5,
+            takes_last_7d: 10, takes_last_30d: 20, volume_last_7d: 2500.0, volume_last_30d: 5000.0
+          }],
+          total: 100, page: 1, per_page: 20, has_next: true
         }
+      }],
+      tags: ['takers','ranking']
+    },
+    {
+      category: 'takers',
+      title: 'Get Taker Details',
+      method: 'GET' as const,
+      endpoint: '/takers/{taker_address}',
+      description: 'Get summary stats and ranks for a specific taker, including per-auction breakdown.',
+      pathParams: [{ name: 'taker_address', type: 'string' as const, required: true }],
+      responses: [{
+        status: 200,
+        description: 'Taker details',
+        example: {
+          taker: '0xabc...def', total_takes: 42, unique_auctions: 5, unique_chains: 2,
+          total_volume_usd: 12345.67, avg_take_size_usd: 293.94,
+          first_take: '2024-01-10T00:00:00Z', last_take: '2024-01-20T12:34:56Z',
+          rank_by_takes: 3, rank_by_volume: 5, total_takers: 100,
+          active_chains: [1,42161],
+          auction_breakdown: [{ auction_address: '0x123...789', chain_id: 1, takes_count: 10, volume_usd: 2500.0, first_take: '2024-01-11T00:00:00Z', last_take: '2024-01-20T12:00:00Z' }]
+        }
+      }],
+      tags: ['takers']
+    },
+    {
+      category: 'takers',
+      title: 'Get Taker Takes',
+      method: 'GET' as const,
+      endpoint: '/takers/{taker_address}/takes',
+      description: 'Get paginated takes for a taker (most recent first).',
+      pathParams: [{ name: 'taker_address', type: 'string' as const, required: true }],
+      parameters: [
+        { name: 'page', type: 'integer' as const, description: 'Page number', example: 1 },
+        { name: 'limit', type: 'integer' as const, description: 'Items per page', example: 10 },
+        { name: 'chain_id', type: 'integer' as const, description: 'Filter by chain' }
       ],
-      tags: ['auctions', 'rounds', 'history']
+      responses: [{
+        status: 200,
+        description: 'Takes list',
+        example: {
+          takes: [{ take_id: '0xabc...-5-1', auction_address: '0x123...789', chain_id: 1, round_id: 5, take_seq: 1,
+                    taker: '0xabc...def', amount_taken: '100000000000000000', amount_paid: '195000000', timestamp: '2024-01-20T12:34:56Z', tx_hash: '0xdef...',
+                    from_token_symbol: 'WETH', to_token_symbol: 'USDC', from_token_price_usd: '2200.00', want_token_price_usd: '1.00', amount_taken_usd: '220.00', amount_paid_usd: '195.00' }],
+          total_count: 10, page: 1, limit: 10, total_pages: 1
+        }
+      }],
+      tags: ['takers','takes']
+    },
+    {
+      category: 'takers',
+      title: 'Get Taker Token Pairs',
+      method: 'GET' as const,
+      endpoint: '/takers/{taker_address}/token-pairs',
+      description: 'Get most frequent from→to token pairs for a taker with USD volume.',
+      pathParams: [{ name: 'taker_address', type: 'string' as const, required: true }],
+      parameters: [
+        { name: 'page', type: 'integer' as const, description: 'Page number', example: 1 },
+        { name: 'limit', type: 'integer' as const, description: 'Items per page', example: 50 }
+      ],
+      responses: [{
+        status: 200,
+        description: 'Token pairs list',
+        example: {
+          token_pairs: [{ from_token: '0xWETH...', to_token: '0xUSDC...', takes_count: 7, volume_usd: 1523.22, last_take_at: '2024-01-20T12:00:00Z', unique_auctions: 3, unique_chains: 2, from_token_symbol: 'WETH', to_token_symbol: 'USDC', active_chains: [1,42161] }],
+          page: 1, per_page: 50, total_count: 1, total_pages: 1
+        }
+      }],
+      tags: ['takers','analytics']
     },
 
     // System Endpoints
@@ -225,32 +284,16 @@ console.log(health.status);`
     },
     {
       category: 'system',
-      title: 'System Statistics',
+      title: 'System Overview',
       method: 'GET' as const,
-      endpoint: '/system/stats',
-      description: 'Get comprehensive system statistics including total auctions, volume, and activity metrics.',
-      parameters: [
-        { name: 'chain_id', type: 'integer' as const, description: 'Filter statistics by specific blockchain network' },
-      ],
-      responses: [
-        {
-          status: 200,
-          description: 'System statistics retrieved successfully',
-          example: {
-            total_auctions: 150,
-            active_auctions: 12,
-            unique_tokens: 45,
-            total_rounds: 1250,
-            total_takes: 5600,
-            total_participants: 892,
-            total_volume_usd: 12500000.50
-          }
-        }
-      ],
-      tags: ['system', 'analytics', 'stats']
+      endpoint: '/analytics/overview',
+      description: 'System-wide metrics including totals and recent activity summaries.',
+      parameters: [ { name: 'chain_id', type: 'integer' as const, description: 'Optional chain filter' } ],
+      responses: [{ status: 200, description: 'Overview', example: { total_auctions: 150, active_auctions: 12, total_takes: 5600, total_volume_usd: 12500000.50 } }],
+      tags: ['system','analytics']
     },
     {
-      category: 'system',
+      category: 'reference',
       title: 'Get Tokens',
       method: 'GET' as const,
       endpoint: '/tokens',
@@ -280,12 +323,12 @@ console.log(health.status);`
           }
         }
       ],
-      tags: ['system', 'tokens', 'metadata']
+      tags: ['reference', 'tokens', 'metadata']
     },
 
-    // Network Endpoints
+    // Reference Endpoints
     {
-      category: 'network',
+      category: 'reference',
       title: 'Get Chains',
       method: 'GET' as const,
       endpoint: '/chains',
@@ -317,41 +360,7 @@ console.log(health.status);`
           }
         }
       ],
-      tags: ['network', 'chains', 'metadata']
-    },
-    {
-      category: 'network',
-      title: 'Get Networks',
-      method: 'GET' as const,
-      endpoint: '/networks',
-      description: 'Get configuration status of all enabled networks including RPC and factory configuration status.',
-      responses: [
-        {
-          status: 200,
-          description: 'Network configurations retrieved successfully',
-          example: {
-            networks: {
-              ethereum: {
-                name: 'Ethereum Mainnet',
-                chain_id: 1,
-                status: 'ready',
-                rpc_configured: true,
-                factory_configured: true,
-              },
-              local: {
-                name: 'Anvil Local',
-                chain_id: 31337,
-                status: 'ready',
-                rpc_configured: true,
-                factory_configured: true,
-              }
-            },
-            count: 2,
-            mode: 'dev'
-          }
-        }
-      ],
-      tags: ['network', 'configuration', 'status']
+      tags: ['reference', 'chains', 'metadata']
     },
 
     // Analytics Endpoints
@@ -359,41 +368,20 @@ console.log(health.status);`
       category: 'analytics',
       title: 'Recent Takes',
       method: 'GET' as const,
-      endpoint: '/activity/takes',
+      endpoint: '/takes',
       description: 'Get the most recent takes across all auctions, sorted by timestamp (newest first).',
-      parameters: [
-        { name: 'limit', type: 'integer' as const, description: 'Number of takes to return (1-500)', example: 50 },
-        { name: 'chain_id', type: 'integer' as const, description: 'Filter takes by specific blockchain network' },
-      ],
-      responses: [
-        {
-          status: 200,
-          description: 'Recent takes retrieved successfully',
-          example: [
-            {
-              take_id: '0x123...abc-5-1',
-              auction: '0x1234567890abcdef1234567890abcdef12345678',
-              chain_id: 1,
-              round_id: 5,
-              taker: '0xabcdef1234567890abcdef1234567890abcdef12',
-              amount_taken: '100000000000000000',
-              price: '1950000000',
-              timestamp: '2024-01-15T14:30:00Z',
-              from_token_symbol: 'WETH',
-              to_token_symbol: 'USDC'
-            }
-          ]
-        }
-      ],
-      tags: ['analytics', 'activity', 'recent']
+      parameters: [ { name: 'limit', type: 'integer' as const, description: 'Number of takes to return (1-500)', example: 50 }, { name: 'chain_id', type: 'integer' as const, description: 'Filter by chain' } ],
+      responses: [{ status: 200, description: 'Recent takes', example: [{ take_id: '1:0x123...789:5:1' }] }],
+      tags: ['analytics','recent']
     }
   ];
 
   const categories = [
     { id: 'all', name: 'All Endpoints', icon: Book },
-    { id: 'core', name: 'Core Auctions', icon: Database },
+    { id: 'core', name: 'Core', icon: Database },
+    { id: 'takers', name: 'Takers', icon: Activity },
+    { id: 'reference', name: 'Reference', icon: Globe },
     { id: 'system', name: 'System', icon: Activity },
-    { id: 'network', name: 'Network', icon: Globe },
     { id: 'analytics', name: 'Analytics', icon: BarChart3 },
   ];
 
@@ -439,7 +427,7 @@ console.log(health.status);`
               <div className="text-xs text-gray-400">Response Format</div>
             </div>
             <div className="text-center">
-              <div className="text-xl font-bold text-yellow-400">v2.0</div>
+              <div className="text-xl font-bold text-yellow-400">2.0</div>
               <div className="text-xs text-gray-400">API Version</div>
             </div>
           </div>
@@ -527,7 +515,7 @@ console.log(health.status);`
       {/* Footer */}
       <div className="mt-8 pt-6 border-t border-gray-800 text-center">
         <div className="flex items-center justify-center space-x-3 text-xs text-gray-600">
-          <span>Version 2.0.0</span>
+          <span>API Docs</span>
           <span>•</span>
           <span>Interactive Documentation</span>
           <span>•</span>

@@ -67,7 +67,7 @@ class APIClient {
   }
 
   async getAuction(address: string, chainId: number): Promise<AuctionDetails> {
-    const response = await fetch(`${BASE_URL}/auctions/${chainId}/${address}`, {
+    const response = await fetch(`${BASE_URL}/auctions/${address}?chain_id=${chainId}`, {
       cache: 'no-cache',
       headers: { 'Cache-Control': 'no-cache' }
     })
@@ -85,7 +85,7 @@ class APIClient {
     fromToken?: string, 
     limit: number = 50
   ): Promise<AuctionRoundHistory> {
-    let url = `/auctions/${chainId}/${auctionAddress}/rounds?limit=${limit}`
+    let url = `/auctions/${auctionAddress}/rounds?chain_id=${chainId}&limit=${limit}`
     if (fromToken) {
       url += `&from_token=${fromToken}`
     }
@@ -107,7 +107,7 @@ class APIClient {
     chainId: number, 
     roundId: number
   ): Promise<any> {
-    const url = `/auctions/${chainId}/${auctionAddress}/rounds?round_id=${roundId}&limit=1`
+    const url = `/rounds/${roundId}?chain_id=${chainId}`
     const response = await fetch(`${BASE_URL}${url}`, {
       cache: 'no-cache',
       headers: { 'Cache-Control': 'no-cache' }
@@ -118,7 +118,7 @@ class APIClient {
     }
     
     const data = await response.json()
-    return data.rounds?.[0] || null
+    return data.round || null
   }
 
   async getAuctionTakes(
@@ -128,7 +128,7 @@ class APIClient {
     limit: number = 50,
     offset: number = 0
   ): Promise<PaginatedTakesResponse> {
-    let url = `/auctions/${chainId}/${auctionAddress}/takes?limit=${limit}&offset=${offset}`
+    let url = `/auctions/${auctionAddress}/takes?chain_id=${chainId}&limit=${limit}&offset=${offset}`
     if (roundId) url += `&round_id=${roundId}`
     
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -149,7 +149,7 @@ class APIClient {
     fromToken: string,
     hours: number = 24
   ): Promise<PriceHistory> {
-    const url = `/auctions/${chainId}/${auctionAddress}/price-history?from_token=${fromToken}&hours=${hours}`
+    const url = `/auctions/${auctionAddress}/price-history?chain_id=${chainId}&from_token=${fromToken}&hours=${hours}`
     const response = await fetch(`${BASE_URL}${url}`, {
       cache: 'no-cache',
       headers: { 'Cache-Control': 'no-cache' }
@@ -177,7 +177,9 @@ class APIClient {
     const searchParams = new URLSearchParams()
     searchParams.append('limit', String(limit))
     if (chainId !== undefined) searchParams.append('chain_id', String(chainId))
-    const url = `/activity/takes?${searchParams.toString()}`
+    // Request minimal payload for list view performance
+    searchParams.append('minimal', 'true')
+    const url = `/takes?${searchParams.toString()}`
     const response = await fetch(`${BASE_URL}${url}`, {
       cache: 'no-cache',
       headers: { 'Cache-Control': 'no-cache' }
@@ -200,17 +202,17 @@ class APIClient {
   }
 
   async getChain(chainId: number): Promise<any> {
-    const response = await fetch(`${BASE_URL}/chains/${chainId}`)
-    
+    // Fetch all chains, then pick
+    const response = await fetch(`${BASE_URL}/chains`)
     if (!response.ok) {
-      throw new Error(`Failed to fetch chain ${chainId}: ${response.statusText}`)
+      throw new Error(`Failed to fetch chains: ${response.statusText}`)
     }
-    
-    return response.json()
+    const data = await response.json()
+    return data?.chains?.[chainId] || null
   }
 
   async getSystemStats(): Promise<SystemStats> {
-    const response = await fetch(`${BASE_URL}/system/stats`)
+    const response = await fetch(`${BASE_URL}/analytics/overview`)
     
     if (!response.ok) {
       throw new Error(`Failed to fetch system stats: ${response.statusText}`)
@@ -312,6 +314,7 @@ class APIClient {
   }
 
   async getTakeDetails(chainId: number, auctionAddress: string, roundId: number, takeSeq: number): Promise<TakeDetail> {
+    // Use path segments per server route: /takes/{chain_id}/{auction_address}/{round_id}/{take_seq}
     const url = `/takes/${chainId}/${auctionAddress}/${roundId}/${takeSeq}`
     const response = await fetch(`${BASE_URL}${url}`, {
       cache: 'no-cache',

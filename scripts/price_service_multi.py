@@ -79,6 +79,8 @@ class UnifiedPricingService:
         self.quote_timeout = float(quote_timeout)
         self._last_mv_refresh: float = 0.0
         self._mv_refresh_min_interval_sec: float = 15.0  # debounce frequent refreshes
+        self._last_takers_mv_refresh: float = 0.0
+        self._takers_mv_refresh_min_interval_sec: float = 30.0
 
         # Recency window for quote APIs from config.yaml
         config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'indexer', 'config.yaml')
@@ -343,6 +345,37 @@ class UnifiedPricingService:
             except Exception as ee:
                 logger.debug(f"MV refresh failed: {e} / {ee}")
 
+    def _takers_mv_exists(self) -> bool:
+        try:
+            with self.db_conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM pg_matviews WHERE schemaname='public' AND matviewname='mv_takers_summary'")
+                return cur.fetchone() is not None
+        except Exception:
+            return False
+
+    def _refresh_mv_takers_summary(self, force: bool = False) -> None:
+        """Debounced refresh for mv_takers_summary (taker aggregates)."""
+        try:
+            import time as _t
+            now = _t.time()
+            if not force and (now - self._last_takers_mv_refresh) < self._takers_mv_refresh_min_interval_sec:
+                return
+            if not self._takers_mv_exists():
+                return
+            with self.db_conn.cursor() as cur:
+                cur.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_takers_summary")
+                self._last_takers_mv_refresh = now
+                logger.info("🔄 Refreshed mv_takers_summary (CONCURRENT)")
+        except Exception as e:
+            try:
+                with self.db_conn.cursor() as cur:
+                    cur.execute("REFRESH MATERIALIZED VIEW mv_takers_summary")
+                    logger.info("🔄 Refreshed mv_takers_summary")
+                    import time as _t
+                    self._last_takers_mv_refresh = _t.time()
+            except Exception as ee:
+                logger.debug(f"Takers MV refresh failed: {e} / {ee}")
+
     def _fetch_from_ypm(self, token: str, block_number: int) -> Tuple[Optional[Decimal], Optional[int], Optional[str]]:
         if not self.ypm:
             return None, None, "ypricemagic unavailable"
@@ -507,6 +540,8 @@ class UnifiedPricingService:
             self._mark_completed(request_id)
             # Trigger a debounced refresh so API reads hit precomputed USD values
             self._refresh_mv_takes_enriched()
+            # Also refresh takers summary MV (depends on enriched USD values for volume/profit)
+            self._refresh_mv_takers_summary()
         else:
             self._mark_failed(request_id, "No sources returned a price")
 

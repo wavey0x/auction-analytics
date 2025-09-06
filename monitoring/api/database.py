@@ -104,6 +104,8 @@ _TABLES_CACHE: dict[str, float] = {}
 _TABLES_CACHE_TTL = 60.0  # seconds
 _ENRICHED_RELATION_CACHE: dict[str, float] = {}
 _ENRICHED_RELATION_TTL = 60.0  # seconds
+_TAKERS_SUMMARY_RELATION_CACHE: dict[str, float] = {}
+_TAKERS_SUMMARY_RELATION_TTL = 60.0  # seconds
 
 class DatabaseQueries:
     """Centralized database query methods for Auction structure"""
@@ -126,9 +128,32 @@ class DatabaseQueries:
                 rel = 'mv_takes_enriched'
         except Exception:
             rel = 'vw_takes_enriched'
-
+        
         _ENRICHED_RELATION_CACHE.clear()
         _ENRICHED_RELATION_CACHE[rel] = now
+        return rel
+
+    @staticmethod
+    async def _get_takers_summary_relation(db: AsyncSession) -> str:
+        """Return preferred takers summary relation; prefer MV when available.
+
+        Checks for mv_takers_summary in pg_matviews, otherwise falls back to vw_takers_summary.
+        Caches briefly to avoid repeated catalog scans.
+        """
+        now = _time.time()
+        if _TAKERS_SUMMARY_RELATION_CACHE and now - next(iter(_TAKERS_SUMMARY_RELATION_CACHE.values())) < _TAKERS_SUMMARY_RELATION_TTL:
+            return next(iter(_TAKERS_SUMMARY_RELATION_CACHE.keys()))
+
+        rel = 'vw_takers_summary'
+        try:
+            result = await db.execute(text("SELECT 1 FROM pg_matviews WHERE schemaname='public' AND matviewname='mv_takers_summary'"))
+            if result.fetchone():
+                rel = 'mv_takers_summary'
+        except Exception:
+            rel = 'vw_takers_summary'
+
+        _TAKERS_SUMMARY_RELATION_CACHE.clear()
+        _TAKERS_SUMMARY_RELATION_CACHE[rel] = now
         return rel
     
     @staticmethod
@@ -743,15 +768,15 @@ class DatabaseQueries:
         return result.fetchall()
 
     @staticmethod
-    async def get_takers_summary(db: AsyncSession, sort_by: str, limit: int, page: int, chain_id: Optional[int]):
+    async def get_takers_summary(db: AsyncSession, sort_by: str, limit: int, page: int, chain_id: Optional[int], skip_count: bool = False):
         """Get ranked takers with summary statistics using materialized view"""
         order_clause = {
             "volume": "total_volume_usd DESC NULLS LAST",
             "takes": "total_takes DESC",
             "recent": "last_take DESC NULLS LAST"
         }.get(sort_by, "total_volume_usd DESC NULLS LAST")
-        # Use dynamic view; if missing or empty, compute from vw_takes_enriched
-        summary_relation = 'vw_takers_summary'
+        # Prefer MV when present; fallback to dynamic view
+        summary_relation = await DatabaseQueries._get_takers_summary_relation(db)
         chain_filter = ""
         if chain_id:
             # Both MV and VW expose active_chains int[]; use it when available
@@ -777,7 +802,7 @@ class DatabaseQueries:
                     ROW_NUMBER() OVER (ORDER BY total_takes DESC) as rank_by_takes,
                     ROW_NUMBER() OVER (ORDER BY total_volume_usd DESC NULLS LAST) as rank_by_volume,
                     total_profit_usd,
-                    profitability_rate as success_rate_percent,
+                    success_rate_percent,
                     takes_last_7d,
                     takes_last_30d,
                     volume_last_7d,
@@ -789,8 +814,9 @@ class DatabaseQueries:
             """)
             result = await db.execute(query, {"limit": limit, "offset": offset})
             takers = [dict(row._mapping) for row in result.fetchall()]
-            count_query = text(f"SELECT COUNT(*) FROM {summary_relation} {chain_filter}")
-            total = (await db.execute(count_query)).scalar()
+            if not skip_count:
+                count_query = text(f"SELECT COUNT(*) FROM {summary_relation} {chain_filter}")
+                total = (await db.execute(count_query)).scalar()
         except Exception as e:
             # Rollback on failure before computing fallback
             try:
@@ -802,7 +828,7 @@ class DatabaseQueries:
             total = 0
 
         # Fallback: If MV exists but is empty (or unavailable), compute on-the-fly from enriched view
-        if not takers and (not total or total == 0):
+        if not takers and (skip_count or not total or total == 0):
             enriched = await DatabaseQueries._get_enriched_takes_relation(db)
             fallback_cte = f"""
                 WITH taker_base AS (
@@ -849,7 +875,8 @@ class DatabaseQueries:
             fb_params = {}
             if chain_id:
                 fb_params["chain_id"] = chain_id
-            total = (await db.execute(fb_total_query, fb_params)).scalar() or 0
+            if not skip_count:
+                total = (await db.execute(fb_total_query, fb_params)).scalar() or 0
 
             # Page from fallback
             fb_query = text(f"""
@@ -880,22 +907,37 @@ class DatabaseQueries:
             fb_result = await db.execute(fb_query, fb_params)
             takers = [dict(row._mapping) for row in fb_result.fetchall()]
 
+        has_next = False
+        if skip_count:
+            has_next = len(takers) == limit
+        else:
+            has_next = (page * limit) < (total or 0)
+
         return {
             "takers": takers,
-            "total": total or 0,
+            "total": (total or 0) if not skip_count else None,
             "page": page,
             "per_page": limit,
-            "has_next": (page * limit) < (total or 0)
+            "has_next": has_next
         }
 
     @staticmethod
     async def get_taker_details(db: AsyncSession, taker_address: str):
         """Get comprehensive taker details using materialized view"""
-        # Get taker data from materialized view
-        # Use flexible shape to avoid column drift issues across envs
-        query = text("""
-            SELECT *
-            FROM vw_takers_summary
+        # Get taker data from MV if present; fallback to dynamic view (ranks computed below when missing)
+        summary_relation = await DatabaseQueries._get_takers_summary_relation(db)
+        query = text(f"""
+            SELECT 
+                taker,
+                total_takes,
+                unique_auctions,
+                unique_chains,
+                total_volume_usd,
+                avg_take_size_usd,
+                first_take,
+                last_take,
+                active_chains
+            FROM {summary_relation}
             WHERE LOWER(taker) = LOWER(:taker)
         """)
         
@@ -1182,14 +1224,15 @@ class DatabaseQueries:
         try:
             
             # Get the take details from enriched view
-            take_query = text("""
+            enriched = await DatabaseQueries._get_enriched_takes_relation(db)
+            take_query = text(f"""
                 SELECT 
                     t.*,
                     tf.symbol as from_token_symbol,
                     tt.symbol as to_token_symbol,
                     a.decay_rate as auction_decay_rate,
                     a.update_interval as auction_update_interval
-                FROM vw_takes_enriched t
+                FROM {enriched} t
                 LEFT JOIN tokens tf ON LOWER(tf.address) = LOWER(t.from_token) 
                                    AND tf.chain_id = t.chain_id
                 LEFT JOIN tokens tt ON LOWER(tt.address) = LOWER(t.to_token) 
@@ -1696,7 +1739,11 @@ class DatabaseDataProvider(DataProvider):
                 "total": total_count,
                 "page": page,
                 "per_page": limit,
-                "has_next": (page * limit) < total_count
+                "has_next": (page * limit) < total_count,
+                # normalized pagination keys
+                "total_count": total_count,
+                "total_pages": (total_count + limit - 1) // limit if total_count > 0 else 1,
+                "limit": limit
             }
 
     async def get_tokens(self) -> Dict[str, Any]:
@@ -1908,7 +1955,11 @@ class DatabaseDataProvider(DataProvider):
                 "total": total_count,
                 "page": current_page,
                 "per_page": limit,
-                "total_pages": total_pages
+                "total_pages": total_pages,
+                # normalized
+                "total_count": total_count,
+                "limit": limit,
+                "has_next": current_page < total_pages
             }
 
     async def get_auction_rounds(self, auction_address: str, from_token: str = None, limit: int = 50, chain_id: int = None, round_id: int = None) -> Dict[str, Any]:

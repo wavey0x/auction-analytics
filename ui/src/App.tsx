@@ -74,7 +74,7 @@ function App() {
                 />
                 <Route path="/taker/:address" element={<TakerDetails />} />
                 <Route path="/take/:chainId/:auctionAddress/:roundId/:takeSeq" element={<TakeDetails />} />
-                <Route path="/api-docs" element={<ApiDocs />} />
+                <Route path="/docs" element={<ApiDocs />} />
               </Routes>
             </Layout>
           </NavigationProvider>

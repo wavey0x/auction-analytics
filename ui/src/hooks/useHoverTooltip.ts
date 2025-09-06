@@ -7,7 +7,8 @@ export interface TooltipPosition {
 
 export interface HoverTooltipOptions {
   enabled?: boolean;
-  hoverDelay?: number;
+  hideDelay?: number;  // Renamed from hoverDelay for clarity
+  showDelay?: number;  // New: delay before showing tooltip
 }
 
 export interface HoverTooltipReturn {
@@ -27,7 +28,7 @@ export interface HoverTooltipReturn {
 export const useHoverTooltip = (
   options: HoverTooltipOptions = {}
 ): HoverTooltipReturn => {
-  const { enabled = true, hoverDelay = 200 } = options;
+  const { enabled = true, hideDelay = 200, showDelay = 200 } = options;
 
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition>({
@@ -35,7 +36,8 @@ export const useHoverTooltip = (
     y: 0,
   });
   const containerRef = useRef<HTMLDivElement>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const showTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateTooltipPosition = () => {
     if (containerRef.current) {
@@ -49,29 +51,42 @@ export const useHoverTooltip = (
 
   const handleMouseEnter = () => {
     if (enabled) {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = null;
+      // Clear any existing hide timeout
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
       }
-      setIsHovered(true);
-      updateTooltipPosition();
+      
+      // Add delay before showing tooltip
+      showTimeoutRef.current = setTimeout(() => {
+        setIsHovered(true);
+        updateTooltipPosition();
+      }, showDelay);
     }
   };
 
   const handleMouseLeave = () => {
     if (enabled) {
-      // Add a small delay before hiding to allow cursor movement to tooltip
-      hoverTimeoutRef.current = setTimeout(() => {
-        setIsHovered(false);
-      }, hoverDelay);
+      // Clear show timeout if tooltip hasn't appeared yet
+      if (showTimeoutRef.current) {
+        clearTimeout(showTimeoutRef.current);
+        showTimeoutRef.current = null;
+      }
+      
+      // Add delay before hiding if tooltip is currently visible
+      if (isHovered) {
+        hideTimeoutRef.current = setTimeout(() => {
+          setIsHovered(false);
+        }, hideDelay);
+      }
     }
   };
 
   const handleTooltipMouseEnter = () => {
     // Cancel the hide timeout if cursor enters tooltip
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
     }
   };
 
@@ -92,11 +107,14 @@ export const useHoverTooltip = (
     }
   }, [isHovered]);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
+      if (showTimeoutRef.current) {
+        clearTimeout(showTimeoutRef.current);
+      }
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
       }
     };
   }, []);

@@ -43,8 +43,13 @@ const STORAGE_KEY = 'addressTags';
 const DISABLED_SYSTEM_TAGS_KEY = 'disabledSystemTags';
 
 // Helper to normalize addresses for consistent storage/lookup
-function normalizeAddress(address: string): string {
-  return address.toLowerCase();
+function normalizeAddress(address?: string | null): string {
+  if (typeof address !== 'string') return '';
+  try {
+    return address.toLowerCase();
+  } catch (e) {
+    return '';
+  }
 }
 
 export const AddressTagsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -106,6 +111,7 @@ export const AddressTagsProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Main API functions
   const getTag = (address: string): string | null => {
     const normalized = normalizeAddress(address);
+    if (!normalized) return null;
     
     // Check user tags first (higher precedence)
     if (normalized in userTags) {
@@ -122,7 +128,7 @@ export const AddressTagsProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const getDisplayName = (address: string): string => {
     const tag = getTag(address);
-    return tag || address;
+    return tag || (address || '');
   };
 
   const getUserTags = (): UserTags => {
@@ -159,11 +165,12 @@ export const AddressTagsProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const hasUserTag = (address: string): boolean => {
     const normalized = normalizeAddress(address);
-    return normalized in userTags;
+    return !!normalized && normalized in userTags;
   };
 
   const hasSystemTag = (address: string): boolean => {
     const normalized = normalizeAddress(address);
+    if (!normalized) return false;
     return getSystemTag(normalized) !== null;
   };
 

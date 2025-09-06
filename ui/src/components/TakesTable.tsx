@@ -97,7 +97,7 @@ const TakesTable: React.FC<TakesTableProps> = ({
     <div className="space-y-3">
       {takes.map((take, index) => (
         <TakeCardMobile
-          key={take.take_id || `take-${index}`}
+          key={`${take.take_id || 'take'}-${index}`}
           take={take}
           showUSD={showUSD}
           hideAuctionColumn={hideAuctionColumn}
@@ -132,7 +132,7 @@ const TakesTable: React.FC<TakesTableProps> = ({
         </thead>
         <tbody>
           {takes.map((take, index) => (
-            <tr key={take.take_id || `take-${index}`} className="group">
+            <tr key={`${take.take_id || 'take'}-${index}`} className="group">
               <td className="w-[22px] min-w-[22px] max-w-[22px] px-0 py-1 text-center">
                 <div className="flex justify-center">
                   <ChainIcon

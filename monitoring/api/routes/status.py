@@ -8,14 +8,19 @@ import os
 import asyncio
 import aiohttp
 import json
+import time
 
 try:
     import redis  # type: ignore
 except Exception:  # pragma: no cover
     redis = None
+try:
+    import redis.asyncio as aioredis  # type: ignore
+except Exception:  # pragma: no cover
+    aioredis = None
 
 # Import using absolute module name because app runs as a script from project root
-from monitoring.api.database import get_db
+from monitoring.api.database import get_db, AsyncSessionLocal
 
 router = APIRouter()
 
@@ -39,7 +44,8 @@ async def _get_chain_head_block() -> int | None:
         return None
     
     try:
-        timeout = aiohttp.ClientTimeout(total=3)
+        # Tight timeout to avoid blocking status endpoint
+        timeout = aiohttp.ClientTimeout(total=1)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             payload = {
                 "jsonrpc": "2.0",
@@ -92,9 +98,169 @@ def _build_redis_url_for_status() -> str | None:
     return f"{scheme}://{auth}{host}:{port}/{db}"
 
 
+async def _probe_redis_status() -> dict:
+    """Non-blocking Redis probe with short timeouts.
+
+    Tries async client if available; otherwise wraps sync calls in a thread.
+    Returns a dict with status, detail and metrics keys.
+    """
+    status = {
+        "name": "redis",
+        "status": "unknown",
+        "detail": "",
+        "metrics": {}
+    }
+    if not redis:
+        status["status"] = "unknown"
+        status["detail"] = "redis client not installed"
+        return status
+
+    redis_url = _build_redis_url_for_status()
+    if not redis_url:
+        status["status"] = "unknown"
+        status["detail"] = "No Redis configuration found"
+        return status
+
+    stream_key = os.getenv("REDIS_STREAM_KEY", "events")
+
+    # Prefer asyncio redis client
+    if aioredis is not None:
+        try:
+            client = aioredis.from_url(
+                redis_url,
+                decode_responses=True,
+                socket_connect_timeout=0.5,
+                socket_timeout=0.5,
+            )
+            try:
+                # Use XREVRANGE small read
+                await client.xrevrange(stream_key, count=1)
+                status.update({"status": "ok", "detail": f"xrevrange({stream_key}) ok"})
+            except Exception:
+                # Fallback to PING if xrevrange disallowed
+                try:
+                    pong = await client.ping()
+                    status.update({"status": "ok" if pong else "down", "detail": "PONG" if pong else "No response"})
+                except Exception as e2:
+                    status.update({"status": "down", "detail": str(e2)[:200]})
+            try:
+                await client.close()
+            except Exception:
+                pass
+            return status
+        except Exception as e:
+            status.update({"status": "down", "detail": str(e)[:200]})
+            return status
+
+    # Fallback: wrap sync client in thread to avoid blocking
+    async def _sync_probe() -> dict:
+        try:
+            client = redis.from_url(
+                redis_url,
+                decode_responses=True,
+                socket_connect_timeout=0.5,
+                socket_timeout=0.5,
+            )
+            try:
+                client.xrevrange(stream_key, count=1)
+                return {"status": "ok", "detail": f"xrevrange({stream_key}) ok"}
+            except Exception as cmd_err:
+                try:
+                    pong = client.ping()
+                    return {"status": "ok" if pong else "down", "detail": "PONG" if pong else "No response"}
+                except Exception as e2:
+                    return {"status": "down", "detail": str(cmd_err)[:200]}
+        except Exception as e:
+            return {"status": "down", "detail": str(e)[:200]}
+
+    try:
+        res = await asyncio.wait_for(asyncio.to_thread(_sync_probe), timeout=0.75)  # type: ignore[arg-type]
+        status.update(res)
+    except Exception:
+        status.update({"status": "unknown", "detail": "timeout"})
+    return status
+
+
+_STATUS_CACHE: Dict[str, Any] | None = None
+_STATUS_CACHE_TS: float | None = None
+_STATUS_CACHE_TTL_SEC: float = 30.0  # serve cached result up to 30s
+_STATUS_REFRESH_IN_PROGRESS: bool = False
+_STATUS_REFRESH_MIN_INTERVAL_SEC: float = 5.0
+
+
+async def _rebuild_status_cache() -> None:
+    global _STATUS_CACHE, _STATUS_CACHE_TS, _STATUS_REFRESH_IN_PROGRESS
+    try:
+        async with AsyncSessionLocal() as session:
+            # Force compute using the same logic as the route, but without early-return
+            result = await get_status(db=session, compute=True)  # type: ignore
+            _STATUS_CACHE = result
+            _STATUS_CACHE_TS = time.time()
+    except Exception:
+        pass
+    finally:
+        _STATUS_REFRESH_IN_PROGRESS = False
+
+
+def _schedule_status_refresh() -> None:
+    global _STATUS_REFRESH_IN_PROGRESS, _STATUS_CACHE_TS
+    now = time.time()
+    if _STATUS_REFRESH_IN_PROGRESS:
+        return
+    # Debounce background refreshes
+    if _STATUS_CACHE_TS and (now - _STATUS_CACHE_TS) < _STATUS_REFRESH_MIN_INTERVAL_SEC:
+        return
+    _STATUS_REFRESH_IN_PROGRESS = True
+    try:
+        asyncio.get_running_loop().create_task(_rebuild_status_cache())
+    except RuntimeError:
+        # No running loop (unlikely in FastAPI), ignore
+        _STATUS_REFRESH_IN_PROGRESS = False
+
+
 @router.get("/status")
-async def get_status(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
+async def get_status(db: AsyncSession = Depends(get_db), compute: bool = False) -> Dict[str, Any]:
     now = _now_epoch()
+
+    # Fast path: always serve cache immediately when not forcing compute.
+    # If cache is missing or stale, schedule background refresh but do not block.
+    if not compute:
+        global _STATUS_CACHE, _STATUS_CACHE_TS
+        # Return cached snapshot if available (even if slightly stale)
+        if _STATUS_CACHE is not None:
+            # Trigger background refresh if past TTL
+            try:
+                if _STATUS_CACHE_TS and (time.time() - _STATUS_CACHE_TS) > _STATUS_CACHE_TTL_SEC:
+                    _schedule_status_refresh()
+            except Exception:
+                pass
+            return _STATUS_CACHE
+        # No cache yet: schedule refresh and return minimal placeholder
+        try:
+            _schedule_status_refresh()
+        except Exception:
+            pass
+        return {
+            "generated_at": now,
+            "thresholds": {
+                "indexer_ok": int(os.getenv("DEV_INDEXER_OK_SEC", "30")),
+                "indexer_warn": int(os.getenv("DEV_INDEXER_WARN_SEC", "120")),
+                "price_ok": int(os.getenv("DEV_PRICE_OK_SEC", "600")),
+                "price_warn": int(os.getenv("DEV_PRICE_WARN_SEC", "1800")),
+                "relay_warn": int(os.getenv("DEV_RELAY_WARN", "100")),
+                "relay_crit": int(os.getenv("DEV_RELAY_CRIT", "1000")),
+            },
+            "services": [
+                {"name": "api", "status": "ok", "detail": "FastAPI responding", "metrics": {"time": now}},
+                {"name": "postgres", "status": "unknown", "detail": "loading", "metrics": {}},
+                {"name": "redis", "status": "unknown", "detail": "loading", "metrics": {}},
+                {"name": "rpc", "status": "unknown", "detail": "loading", "metrics": {}},
+                {"name": "indexer", "status": "unknown", "detail": "loading", "metrics": {}},
+                {"name": "prices", "status": "unknown", "detail": "loading", "metrics": {}},
+                {"name": "relay", "status": "unknown", "detail": "loading", "metrics": {}},
+            ],
+            "stale": True
+        }
 
     # Thresholds (seconds)
     idx_ok = int(os.getenv("DEV_INDEXER_OK_SEC", "30"))
@@ -132,53 +298,11 @@ async def get_status(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
         db_status["detail"] = str(e)[:200]
     services.append(db_status)
 
-    # Redis health (optional)
-    redis_status = {
-        "name": "redis",
-        "status": "unknown",
-        "detail": "",
-        "metrics": {}
-    }
-    if not redis:
-        redis_status["status"] = "unknown"
-        redis_status["detail"] = "redis client not installed"
-    else:
-        redis_url = _build_redis_url_for_status()
-        if not redis_url:
-            redis_status["status"] = "unknown"
-            redis_status["detail"] = "No Redis configuration found"
-        else:
-            try:
-                client = redis.from_url(
-                    redis_url,
-                    decode_responses=True,
-                    socket_connect_timeout=2,
-                    socket_timeout=2,
-                )
-                # Prefer a read-based probe so consumer user doesn't need +ping
-                stream_key = os.getenv("REDIS_STREAM_KEY", "events")
-                try:
-                    client.xrevrange(stream_key, count=1)
-                    redis_status["status"] = "ok"
-                    redis_status["detail"] = f"xrevrange({stream_key}) ok"
-                except Exception as cmd_err:
-                    # Fall back to XREAD which is commonly allowed for consumers
-                    try:
-                        client.xread({stream_key: "$"}, count=1, block=1)
-                        redis_status["status"] = "ok"
-                        redis_status["detail"] = f"xread({stream_key}) ok"
-                    except Exception:
-                        # As a last resort, try PING; if forbidden, surface the error
-                        try:
-                            pong = client.ping()
-                            redis_status["status"] = "ok" if pong else "down"
-                            redis_status["detail"] = "PONG" if pong else "No response"
-                        except Exception as e2:
-                            redis_status["status"] = "down"
-                            redis_status["detail"] = str(cmd_err)[:200]
-            except Exception as e:
-                redis_status["status"] = "down"
-                redis_status["detail"] = str(e)[:200]
+    # Redis health (probe in parallel with DB work)
+    try:
+        redis_status = await asyncio.wait_for(_probe_redis_status(), timeout=0.8)
+    except Exception:
+        redis_status = {"name": "redis", "status": "unknown", "detail": "timeout", "metrics": {}}
     services.append(redis_status)
 
     # RPC health (simulated from frontend monitoring)
@@ -215,8 +339,11 @@ async def get_status(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
             age = max(0, now - updated_at)
             indexed_block = int(row[1] or 0)
             
-            # Get chain head for block lag detection
-            chain_head = await _get_chain_head_block()
+            # Get chain head for block lag detection (in parallel earlier)
+            try:
+                chain_head = await asyncio.wait_for(_get_chain_head_block(), timeout=1.0)
+            except Exception:
+                chain_head = None
             
             # Determine status based on age and block lag
             age_status = _status_from_age(age, idx_ok, idx_warn)
@@ -266,7 +393,7 @@ async def get_status(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
         "metrics": {}
     }
     try:
-        # Latest per source
+        # Latest per source (accelerated by idx_token_prices_source_ts)
         res = await db.execute(text(
             "SELECT source, MAX(timestamp) AS ts FROM token_prices GROUP BY source"
         ))
@@ -328,7 +455,7 @@ async def get_status(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
         relay_status.update({"status": "unknown", "detail": f"{e}"[:200]})
     services.append(relay_status)
 
-    return {
+    result = {
         "generated_at": now,
         "thresholds": {
             "indexer_ok": idx_ok,
@@ -340,3 +467,12 @@ async def get_status(db: AsyncSession = Depends(get_db)) -> Dict[str, Any]:
         },
         "services": services,
     }
+
+    # Update cache
+    try:
+        _STATUS_CACHE = result
+        _STATUS_CACHE_TS = datetime.now(timezone.utc).timestamp()
+    except Exception:
+        pass
+
+    return result

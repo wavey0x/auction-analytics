@@ -205,7 +205,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span>|</span>
 
             <Link 
-              to="/api-docs" 
+              to="/docs" 
               className="flex items-center space-x-1 hover:text-gray-300 transition-colors"
             >
               <Book className="h-3 w-3" />

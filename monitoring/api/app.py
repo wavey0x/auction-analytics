@@ -26,11 +26,16 @@ from datetime import datetime, timezone
 
 from monitoring.api.config import get_settings, get_cors_origins, is_mock_mode, requires_database, get_all_network_configs, get_enabled_networks, is_development_mode
 from monitoring.api.models.auction import SystemStats, AuctionListResponse
+from monitoring.api.response_utils import normalize_pagination, normalize_takes_array
 from monitoring.api.models.taker import TakerSummary, TakerDetail, TakerListResponse, TakerTakesResponse
 from monitoring.api.database import get_db, check_database_connection, get_data_provider, DataProvider
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from monitoring.api.routes.status import router as status_router
+from monitoring.api.routes_v2.auctions import router as auctions_v2
+from monitoring.api.routes_v2.takes import router as takes_v2
+from monitoring.api.routes_v2.rounds import router as rounds_v2
+from monitoring.api.routes_v2.reference import router as reference_v2
 
 # Parse command line arguments (only when run directly, not when imported by uvicorn)
 PROVIDER_MODE = None
@@ -200,14 +205,24 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     # Production-safe message
     return JSONResponse(status_code=500, content={"error": "internal_server_error"})
 
-# Mount status router
+# Mount routers (v1 status + v2 resource routers)
 app.include_router(status_router)
+app.include_router(auctions_v2)
+app.include_router(takes_v2)
+app.include_router(rounds_v2)
+app.include_router(reference_v2)
 
 
 # Dependency to get data provider
 def get_data_service() -> DataProvider:
     """Get data provider instance"""
     return get_data_provider(force_mode=PROVIDER_MODE)
+
+
+# Tiny in-process caches (TTL seconds)
+_TAKERS_CACHE: dict = {}
+_TAKERS_CACHE_TS: dict = {}
+_TAKERS_CACHE_TTL = 5.0
 
 
 # Startup validation
@@ -296,158 +311,76 @@ async def health_check():
     return status
 
 
-@app.get("/auctions", response_model=AuctionListResponse)
-async def get_auctions(
-    status: str = Query("all", description="Filter by status: all, active, completed"),
-    page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
-    data_service: DataProvider = Depends(get_data_service)
-):
-    """Get paginated list of auctions"""
-    result = await data_service.get_auctions(status, page, limit, chain_id)
-    return result
+ 
 
 
-@app.get("/auctions/{chain_id}/{auction_address}")
-async def get_auction_details(
-    chain_id: int,
-    auction_address: str,
-    data_service: DataProvider = Depends(get_data_service)
-):
-    """Get detailed auction information"""
-    result = await data_service.get_auction_details(auction_address, chain_id)
-    return result
-
-@app.get("/auctions/{chain_id}/{auction_address}/takes")
-async def get_auction_takes(
-    chain_id: int,
-    auction_address: str,
-    round_id: Optional[int] = Query(None, description="Filter by round ID"),
-    limit: int = Query(50, ge=1, le=100, description="Number of takes to return"),
-    offset: int = Query(0, ge=0, description="Number of takes to skip for pagination"),
-    data_service: DataProvider = Depends(get_data_service)
-):
-    """Get takes for a specific auction"""
-    result = await data_service.get_auction_takes(auction_address, round_id, limit, chain_id, offset)
-    return result
-
-@app.get("/auctions/{chain_id}/{auction_address}/rounds")
-async def get_auction_rounds(
-    chain_id: int,
-    auction_address: str,
-    from_token: Optional[str] = Query(None, description="Token being sold (optional)"),
-    round_id: Optional[int] = Query(None, description="Specific round ID to fetch"),
-    limit: int = Query(50, ge=1, le=100, description="Number of rounds to return"),
-    data_service: DataProvider = Depends(get_data_service)
-):
-    """Get round history for an auction"""
-    result = await data_service.get_auction_rounds(auction_address, from_token, limit, chain_id, round_id)
-    return result
-
-
-@app.get("/auctions/{chain_id}/{auction_address}/price-history")
-async def get_price_history(
-    chain_id: int,
-    auction_address: str,
-    from_token: str = Query(..., description="Token being sold"),
-    hours: int = Query(24, ge=1, le=168, description="Hours of history to return")
-):
-    """Get price history for charting - placeholder endpoint"""
-    # TODO: Implement price history tracking
-    return {
-        "auction": auction_address,
-        "from_token": from_token,
-        "points": [],
-        "duration_hours": hours
-    }
-
-
-@app.get("/tokens")
-async def get_tokens(
-    data_service: DataProvider = Depends(get_data_service)
-):
-    """Get all tokens"""
-    try:
-        result = await data_service.get_tokens()
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching tokens: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch tokens")
-
-
-@app.get("/system/stats")
-async def get_system_stats(
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
-    data_service: DataProvider = Depends(get_data_service)
-):
-    """Get system statistics"""
-    try:
-        result = await data_service.get_system_stats(chain_id)
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching system stats: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch system stats")
+ 
 
 
 @app.get("/chains")
 async def get_chains():
-    """Get chain information and icons"""
-    chain_data = {
-        1: {
-            "chainId": 1,
-            "name": "Ethereum Mainnet",
-            "shortName": "Ethereum",
-            "icon": "https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg",
-            "nativeSymbol": "ETH",
-            "explorer": "https://etherscan.io"
-        },
-        137: {
-            "chainId": 137,
-            "name": "Polygon",
-            "shortName": "Polygon", 
-            "icon": "https://icons.llamao.fi/icons/chains/rsz_polygon.jpg",
-            "nativeSymbol": "MATIC",
-            "explorer": "https://polygonscan.com"
-        },
-        56: {
-            "chainId": 56,
-            "name": "BNB Smart Chain",
-            "shortName": "BSC",
-            "icon": "https://icons.llamao.fi/icons/chains/rsz_binance.jpg",
-            "nativeSymbol": "BNB",
-            "explorer": "https://bscscan.com"
-        },
-        42161: {
-            "chainId": 42161,
-            "name": "Arbitrum One",
-            "shortName": "Arbitrum",
-            "icon": "https://icons.llamao.fi/icons/chains/rsz_arbitrum.jpg",
-            "nativeSymbol": "ETH",
-            "explorer": "https://arbiscan.io"
-        },
-        10: {
-            "chainId": 10,
-            "name": "Optimism",
-            "shortName": "Optimism",
-            "icon": "https://icons.llamao.fi/icons/chains/rsz_optimism.jpg",
-            "nativeSymbol": "ETH",
-            "explorer": "https://optimistic.etherscan.io"
-        },
-        31337: {
-            "chainId": 31337,
-            "name": "Anvil Local",
-            "shortName": "Anvil",
-            "icon": "https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg",
-            "nativeSymbol": "ETH",
-            "explorer": "#"
+    """Get chain information and icons for all supported networks"""
+    try:
+        from monitoring.api.config import SUPPORTED_NETWORKS, get_network_config
+        chain_data = {}
+        for name, _meta in SUPPORTED_NETWORKS.items():
+            cfg = get_network_config(name)
+            cid = int(cfg.get("chain_id"))
+            chain_data[cid] = {
+                "chainId": cid,
+                "name": cfg.get("name"),
+                "shortName": cfg.get("short_name"),
+                "icon": cfg.get("icon"),
+                "explorer": cfg.get("explorer"),
+            }
+        return {"chains": chain_data, "count": len(chain_data)}
+    except Exception:
+        # Fallback to legacy static list if config import fails
+        chain_data = {
+            1: {
+                "chainId": 1,
+                "name": "Ethereum Mainnet",
+                "shortName": "Ethereum",
+                "icon": "https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg",
+                "explorer": "https://etherscan.io"
+            },
+            137: {
+                "chainId": 137,
+                "name": "Polygon",
+                "shortName": "Polygon", 
+                "icon": "https://icons.llamao.fi/icons/chains/rsz_polygon.jpg",
+                "explorer": "https://polygonscan.com"
+            },
+            42161: {
+                "chainId": 42161,
+                "name": "Arbitrum One",
+                "shortName": "Arbitrum",
+                "icon": "https://icons.llamao.fi/icons/chains/rsz_arbitrum.jpg",
+                "explorer": "https://arbiscan.io"
+            },
+            10: {
+                "chainId": 10,
+                "name": "Optimism",
+                "shortName": "Optimism",
+                "icon": "https://icons.llamao.fi/icons/chains/rsz_optimism.jpg",
+                "explorer": "https://optimistic.etherscan.io"
+            },
+            8453: {
+                "chainId": 8453,
+                "name": "Base",
+                "shortName": "Base",
+                "icon": "https://icons.llamao.fi/icons/chains/rsz_base.jpg",
+                "explorer": "https://basescan.org"
+            },
+            31337: {
+                "chainId": 31337,
+                "name": "Anvil Local",
+                "shortName": "Anvil",
+                "icon": "https://icons.llamao.fi/icons/chains/rsz_ethereum.jpg",
+                "explorer": "#"
+            }
         }
-    }
-    
-    return {
-        "chains": chain_data,
-        "count": len(chain_data)
-    }
+        return {"chains": chain_data, "count": len(chain_data)}
 
 
 @app.get("/networks")
@@ -564,6 +497,7 @@ async def get_takers(
     limit: int = Query(25, le=100, ge=1, description="Number of takers to return"),
     page: int = Query(1, ge=1, description="Page number for pagination"),
     chain_id: Optional[int] = Query(None, description="Filter by specific chain ID"),
+    skip_count: bool = Query(False, description="Skip COUNT(*) for faster response; 'has_next' inferred from page size"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -575,9 +509,34 @@ async def get_takers(
     - **chain_id**: Optional filter by chain ID
     """
     try:
+        # In-process microcache key
+        cache_key = (sort_by, limit, page, chain_id, bool(skip_count))
+        now_ts = time.time()
+        try:
+            if cache_key in _TAKERS_CACHE and (now_ts - _TAKERS_CACHE_TS.get(cache_key, 0)) < _TAKERS_CACHE_TTL:
+                return _TAKERS_CACHE[cache_key]
+        except Exception:
+            pass
+
         from monitoring.api.database import DatabaseQueries
         
-        result = await DatabaseQueries.get_takers_summary(db, sort_by, limit, page, chain_id)
+        result = await DatabaseQueries.get_takers_summary(db, sort_by, limit, page, chain_id, skip_count=skip_count)
+        # Normalize pagination keys for consistency
+        try:
+            total = int(result.get('total') or 0) if result.get('total') is not None else 0
+            per_page = int(result.get('per_page') or limit)
+            total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+            result.setdefault('total_count', total)
+            result.setdefault('total_pages', total_pages)
+            result.setdefault('limit', per_page)
+        except Exception:
+            pass
+        # Update cache
+        try:
+            _TAKERS_CACHE[cache_key] = result
+            _TAKERS_CACHE_TS[cache_key] = now_ts
+        except Exception:
+            pass
         return result
     except Exception as e:
         logger.error(f"Error fetching takers: {e}")
@@ -624,6 +583,11 @@ async def get_taker_takes(
         from monitoring.api.database import DatabaseQueries
         
         result = await DatabaseQueries.get_taker_takes(db, taker_address, limit, page)
+        try:
+            normalize_takes_array(result, 'takes')
+            normalize_pagination(result)
+        except Exception:
+            pass
         return result
     except Exception as e:
         logger.error(f"Error fetching taker takes: {e}")
@@ -819,19 +783,7 @@ async def legacy_get_kicks(limit: int = Query(50, ge=1, le=100)):
     }
 
 
-@app.get("/activity/takes") 
-async def get_recent_takes(
-    limit: int = Query(50, ge=1, le=500),
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
-    data_service: DataProvider = Depends(get_data_service)
-):
-    """Recent takes across all auctions (most recent first)"""
-    try:
-        takes = await data_service.get_recent_takes(limit, chain_id)
-        return takes
-    except Exception as e:
-        logger.error(f"Error fetching recent takes: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch recent takes")
+ 
 
 
 @app.get("/analytics/overview")
